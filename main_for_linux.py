@@ -2,39 +2,22 @@ import pandas as pd
 
 from smac_rev import StarCraft2Env
 from GDN import Agent
+import torch
+from pysc2.lib.remote_controller import ConnectError, RequestError
+from pysc2.lib.protocol import ProtocolError
 from functools import partial
 import numpy as np
 import sys
 import os
 import time
-from cfg import get_cfg
-cfg = get_cfg()
-
-vessl_on = cfg.vessl
-if vessl_on == True:
-    import vessl
-    vessl.init()
-else:
-    from torch.utils.tensorboard import SummaryWriter
 
 
 
-
-if sys.platform == "linux":
-    def env_fn(env, **kwargs):
-        return env(**kwargs)
-    REGISTRY = {}
-    REGISTRY["sc2"] = partial(env_fn, env=StarCraft2Env)
-    os.environ.setdefault("SC2PATH",
-                          os.path.join(os.getcwd(),
-                                       "3rdparty",
-                                       "StarCraftII"))
-else:
-    env = StarCraft2Env(map_name = '3s5z_vs_3s6z')
 
 regularizer = 0.0
-map_name1 = cfg.map_name
-GNN = cfg.GNN
+map_name1 = '6h_vs_8z'
+
+GNN = 'FastGTN'
 heterogenous = False
 
 """
@@ -66,10 +49,15 @@ def evaluation(env, agent, num_eval):
         step = 0
         while (not done) and (step < max_episode_len):
             step += 1
+
             node_feature, edge_index_enemy, edge_index_ally, n_node_features = env.get_heterogeneous_graph(heterogeneous = heterogenous)
-            node_representation = agent.get_node_representation(node_feature, edge_index_enemy, edge_index_ally,n_node_features,mini_batch=False)  # 차원 : n_agents X n_representation_comm
+
+            node_representation = agent.get_node_representation(node_feature, edge_index_enemy, edge_index_ally,
+                                                                n_node_features,
+                                                                mini_batch=False)  # 차원 : n_agents X n_representation_comm
             avail_action = env.get_avail_actions()
             action_feature = env.get_action_feature()  # 차원 : action_size X n_action_feature
+
             action = agent.sample_action(node_representation, action_feature, avail_action, epsilon=0)
             reward, done, info = env.step(action)
             win_tag = True if done and 'battle_won' in info and info['battle_won'] else False
@@ -125,6 +113,7 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
         2. ally_communication에 대한에 대한 adjacency matrix 추출                 / 아군 유닛의 시야로부터 적에 대한 visibility
         """
         node_feature, edge_index_enemy, edge_index_ally, n_node_features = env.get_heterogeneous_graph(heterogeneous=heterogenous)
+
         if GNN == 'GAT':
             node_representation = agent.get_node_representation(node_feature,
                                                                 edge_index_enemy,
@@ -137,12 +126,19 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
                                                                 edge_index_ally,
                                                                 n_node_features,
                                                                 mini_batch=False)  # 차원 : n_agents X n_representation_comm
+
+
         avail_action = env.get_avail_actions()
         action_feature = env.get_action_feature()  # 차원 : action_size X n_action_feature
+
+
         action = agent.sample_action(node_representation, action_feature, avail_action, epsilon)
+
         reward, done, info = env.step(action)
         agent.buffer.memory(node_feature, action, action_feature, edge_index_enemy, edge_index_ally, reward,
                             done, avail_action)
+
+
         episode_reward += reward
         t += 1
         step += 1
@@ -156,71 +152,55 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
             epsilon = epsilon - anneal_epsilon
         else:
             epsilon = min_epsilon
+
+
     if e >= train_start:
-        print("{} Total reward in episode {} = {}, epsilon : {}, time_step : {}, episode_duration : {}".format(env.map_name,
+
+        print("{} Total reward in episode {} = {}, loss : {}, epsilon : {}, time_step : {}, episode_duration : {}".format(env.map_name,
                                                                                                 e,
-                                                                                                np.round(episode_reward, 3),
-                                                                                                np.round(epsilon, 3),
-                                                                                                t, np.round(time.time()-start, 3)))
+                                                                                                episode_reward,
+                                                                                                loss,
+                                                                                                epsilon,
+                                                                                                t, start-time.time()))
+
+
     return episode_reward, epsilon, t, eval
 
 def main():
-    if sys.platform == "linux":
-        env1 = REGISTRY["sc2"](map_name=map_name1, seed=123, step_mul=8, replay_dir="Replays", )
-    else:
-        env1 = StarCraft2Env(map_name='3s5z_vs_3s6z')
+    #writer = SummaryWriter('logs/')
+    env1 = StarCraft2Env(map_name=map_name1, step_mul=8, replay_dir="Replays", seed=123)
     env1.reset()
     num_unit_types, unit_type_ids = get_agent_type_of_envs([env1])
     env1.generate_num_unit_types(num_unit_types, unit_type_ids)
 
 
 
+    hidden_size_obs = 32       # GAT 해당(action 및 node representation의 hidden_size)
+    hidden_size_comm = 60
+    hidden_size_Q = 84         # GAT 해당
+    hidden_size_meta_path = 42 # GAT 해당
+    n_representation_obs = 36  # GAT 해당
+    n_representation_comm = 69
+    buffer_size = 150000
+    batch_size = 32
+    gamma = 0.99
+    learning_rate = 1.3e-4
+    n_multi_head = 1
+    dropout = 0.6
+    num_episode = 1000000
+    train_start = 10
+    epsilon = 1
+    min_epsilon = 0.05
+    anneal_steps = 50000
+    teleport_probability = 0.9
+    gtn_beta = 0.1
 
-    hidden_size_obs = cfg.hidden_size_obs       # GAT 해당(action 및 node representation의 hidden_size)
-    hidden_size_comm = cfg.hidden_size_comm
-    hidden_size_Q = cfg.hidden_size_Q         # GAT 해당
-    hidden_size_meta_path = cfg.hidden_size_meta_path # GAT 해당
-    n_representation_obs = cfg.n_representation_obs  # GAT 해당
-    n_representation_comm = cfg.n_representation_comm
-    buffer_size = cfg.buffer_size
-    batch_size = cfg.batch_size
-    gamma = cfg.gamma
-    learning_rate = cfg.lr
-    n_multi_head = cfg.n_multi_head
-    dropout = cfg.dropout
-    num_episode = cfg.num_episode
-    train_start = cfg.train_start
-    epsilon = cfg.epsilon
-    min_epsilon = cfg.min_epsilon
-    anneal_steps = cfg.anneal_steps
-    teleport_probability = cfg.teleport_probability
-    gtn_beta = cfg.gtn_beta
     anneal_epsilon = (epsilon - min_epsilon) / anneal_steps
-    if vessl_on == True:
-
-        output_dir = "/output/map_name_{}_GNN_{}_lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}/".format(map_name1, GNN, learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm)
-    else:
-        output_dir = "output/map_name_{}_GNN_{}_lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}/".format(
-            map_name1, GNN, learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm)
-
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-
-    log_dir = './output/logs/'
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
 
     initializer = True
-    # writer = SummaryWriter(log_dir,
-    #                        comment="map_name_{}_GNN_{}_lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.csv".format(
-    #                            map_name1, GNN, learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs,
-    #                            n_representation_comm))
     agent1 = Agent(num_agent=env1.get_env_info()["n_agents"],
                    num_enemy=env1.get_env_info()["n_enemies"],
                    feature_size=env1.get_env_info()["node_features"],
-                   action_size=env1.get_env_info()["n_actions"],
-
-
                    hidden_size_meta_path = hidden_size_meta_path,
                    hidden_size_obs=hidden_size_obs,
                    hidden_size_comm=hidden_size_comm,
@@ -229,17 +209,38 @@ def main():
                    n_representation_obs=n_representation_obs,
                    n_representation_comm=n_representation_comm,
                    dropout=dropout,
-
+                   action_size=env1.get_env_info()["n_actions"],
                    buffer_size=buffer_size,
                    batch_size=batch_size,
                    max_episode_len=env1.episode_limit,
                    learning_rate=learning_rate,
                    gamma=gamma,
                    GNN=GNN,
-                   teleport_probability = teleport_probability,
+                   teleport_probability= teleport_probability,
                    gtn_beta = gtn_beta)
 
+    # agent2 = Agent(num_agent=env2.get_env_info()["n_agents"],
+    #               feature_size=env2.get_env_info()["node_features"],
+    #               hidden_size_obs=hidden_size_obs,
+    #               hidden_size_comm=hidden_size_comm,
+    #               hidden_size_Q=hidden_size_Q,
+    #               n_multi_head=n_multi_head,
+    #               n_representation_obs=n_representation_obs,
+    #               n_representation_comm=n_representation_comm,
+    #               dropout=dropout,
+    #               action_size=env2.get_env_info()["n_actions"],
+    #               buffer_size=buffer_size,
+    #               batch_size=batch_size,
+    #               max_episode_len=env2.episode_limit,
+    #               learning_rate=learning_rate,
+    #               gamma=gamma)
 
+
+
+
+
+
+    #network_sharing([agent1])
     t = 0
     epi_r = []
     win_rates = []
@@ -247,34 +248,17 @@ def main():
         episode_reward, epsilon, t, eval = train(agent1, env1, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer)
         initializer = False
         epi_r.append(episode_reward)
-        #writer.add_scalar("episode_reward/train", episode_reward, e)
-        if t % 500000 <= 0.1:
-            if vessl_on == True:
-                print("Model save")
-                agent1.save_model(output_dir+"{}.pt".format(t))
-            else:
-                print("Model save")
-                agent1.save_model(output_dir+"{}.pt".format(t))
         if e % 100 == 1:
-            if vessl_on == True:
-                vessl.log(step = e, payload = {'reward' : np.mean(epi_r)})
-                epi_r = []
-                r_df= pd.DataFrame(epi_r)
-                r_df.to_csv(output_dir+"reward.csv")
-            else:
-                r_df= pd.DataFrame(epi_r)
-                r_df.to_csv(output_dir+"reward.csv")
+
+            r_df= pd.DataFrame(epi_r)
+            r_df.to_csv("reward.csv")
 
         if eval == True:
             win_rate = evaluation(env1, agent1, 32)
-            win_rates.append(win_rate)
-            if vessl_on == True:
-                vessl.log(step = t, payload = {'win_rate' : win_rate})
-                wr_df = pd.DataFrame(win_rates)
-                wr_df.to_csv(output_dir+"win_rate.csv")
-            else:
-                wr_df = pd.DataFrame(win_rates)
-                wr_df.to_csv(output_dir+"win_rate.csv")
+
+            wr_df = pd.DataFrame(win_rates)
+            wr_df.to_csv("win_rate.csv")
+
 
 
 
