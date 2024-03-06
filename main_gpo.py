@@ -239,7 +239,7 @@ def main():
         if eval == True:
             win_rates = evaluation(env, agent)
             if cfg.vessl_on == True:
-                vessl.log(step=t, payload={'win rates': win_rates})
+                vessl.log(step=t, payload={'win_rates': win_rates})
 
 
         #     if vessl_on == True:
