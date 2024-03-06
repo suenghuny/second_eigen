@@ -13,7 +13,7 @@ import time
 from cfg import get_cfg
 cfg = get_cfg()
 
-vessl_on = cfg.vessl
+vessl_on = cfg.vessl_on
 if vessl_on == True:
     import vessl
     vessl.init()
