@@ -34,7 +34,7 @@ else:
 
 regularizer = 0.0
 map_name1 = cfg.map_name
-GNN = cfg.GNN
+
 heterogenous = False
 
 """

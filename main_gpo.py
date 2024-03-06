@@ -179,10 +179,10 @@ def main():
     if cfg.sweep == True:
         params = {
             "hidden_size_obs": int(os.environ.get("hidden_size_obs", 32)),
-            "hidden_size_action": int(os.environ.get("hidden_size_obs", 32)),
-            "n_representation_obs": int(os.environ.get("hidden_size_obs", 32)),
-            "n_representation_action": int(os.environ.get("hidden_size_obs", 32)),
-            "graph_embedding": int(os.environ.get("hidden_size_obs", 32)),
+            "hidden_size_action": int(os.environ.get("hidden_size_action", 32)),
+            "n_representation_obs": int(os.environ.get("n_representation_obs", 32)),
+            "n_representation_action": int(os.environ.get("n_representation_action", 32)),
+            "graph_embedding": int(os.environ.get("graph_embedding", 32)),
             "learning_rate": cfg.lr,
             "gamma": cfg.gamma,
             "ppo_layers": cfg.ppo_layers,
