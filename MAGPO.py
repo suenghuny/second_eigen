@@ -136,8 +136,12 @@ class Agent:
         # print(cfg.hidden_size_meta_path + n_representation_action)
 
 
-        self.node_representation =   NodeEmbedding(feature_size=self.feature_size,         hidden_size=self.hidden_size_obs, n_representation_obs=self.n_representation_obs).to(device)  # 수정사항
-        self.action_representation = NodeEmbedding(feature_size=self.feature_size + 6 - 1, hidden_size=self.hidden_size_action, n_representation_obs=self.n_representation_action).to(device)  # 수정사항
+        self.node_representation =   NodeEmbedding(feature_size=self.feature_size,
+                                                   hidden_size=self.hidden_size_obs,
+                                                   n_representation_obs=self.n_representation_obs).to(device)  # 수정사항
+        self.action_representation = NodeEmbedding(feature_size=self.feature_size + 6 - 1,
+                                                   hidden_size=self.hidden_size_action,
+                                                   n_representation_obs=self.n_representation_action).to(device)  # 수정사항
 
 
 
@@ -146,7 +150,7 @@ class Agent:
         self.func_glcn = GLCN(feature_size=self.graph_embedding,      graph_embedding_size=self.graph_embedding, link_prediction = True).to(device)
 
         self.network = PPONetwork(state_size=self.graph_embedding,
-                                  state_action_size=self.graph_embedding + self.hidden_size_action,
+                                  state_action_size=self.graph_embedding + self.n_representation_action,
                                   layers=self.layers).to(device)
 
 
