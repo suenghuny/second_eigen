@@ -431,12 +431,12 @@ class Agent:
                     loss2 = gamma1 * lap_quad - gamma2 * sec_eig_upperbound
 
                 if l == 0:
-                    second_eigenvalue = torch.mean(torch.tensor([torch.linalg.eigh(L[t, :, :])[0][1] for t in range(time_step)]))/cfg.n_data_parallelism
+                    #second_eigenvalue = torch.mean(torch.tensor([torch.linalg.eigh(L[t, :, :])[0][1] for t in range(time_step)]))/cfg.n_data_parallelism
                     cum_loss1 = loss1 / cfg.n_data_parallelism
                     if i == 0:
                         cum_loss2 = loss2 / cfg.n_data_parallelism
                 else:
-                    second_eigenvalue += torch.mean(torch.tensor([torch.linalg.eigh(L[t, :, :])[0][1] for t in range(time_step)]))/cfg.n_data_parallelism
+                    #second_eigenvalue += torch.mean(torch.tensor([torch.linalg.eigh(L[t, :, :])[0][1] for t in range(time_step)]))/cfg.n_data_parallelism
                     cum_loss1 = cum_loss1 + loss1 / cfg.n_data_parallelism
                     if i == 0:
                         cum_loss2 = cum_loss2 + loss2 / cfg.n_data_parallelism
