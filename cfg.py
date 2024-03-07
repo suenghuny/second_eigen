@@ -29,7 +29,7 @@ def get_cfg():
     parser.add_argument("--grad_clip", type=float, default=20, help="")
     parser.add_argument("--vessl_on", type=bool, default=False, help="")
     parser.add_argument("--gamma1", type=float, default=1.0, help="")
-    parser.add_argument("--gamma2", type=float, default=1.0, help="")
+
     parser.add_argument("--sweep", type=bool, default=True, help="")
 
 

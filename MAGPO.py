@@ -113,6 +113,13 @@ class Agent:
         self.graph_embedding = params["graph_embedding"]
         self.learning_rate = params["learning_rate"]
         self.gamma = params["gamma"]
+
+        self.gamma2 = params["gamma2"]
+        self.learning_rate_graph = params["learning_rate_graph"]
+        self.n_data_parallelism = params["n_data_parallelism"]
+
+
+
         self.lmbda = params["lmbda"]
         self.eps_clip = params["eps_clip"]
         self.K_epoch = params["K_epoch"]
@@ -165,7 +172,7 @@ class Agent:
 
         if cfg.optimizer == 'ADAM':
             self.optimizer1 = optim.Adam(self.eval_params, lr=self.learning_rate)  #
-            self.optimizer2 = optim.Adam(self.eval_params, lr=cfg.lr_graph)  #
+            self.optimizer2 = optim.Adam(self.eval_params, lr=self.learning_rate_graph)  #
         if cfg.optimizer == 'ADAMW':
             self.optimizer = optim.AdamW(self.eval_params, lr=self.learning_rate)  #
         self.scheduler = StepLR(optimizer=self.optimizer1, step_size=cfg.scheduler_step, gamma=cfg.scheduler_ratio)
@@ -405,8 +412,7 @@ class Agent:
                 surr1 = ratio * (advantage.detach().squeeze())
                 surr2 = torch.clamp(ratio, 1 - self.eps_clip, 1 + self.eps_clip) * (advantage.detach().squeeze())
 
-                gamma1 = float(os.environ.get("gamma1", 1))
-                gamma2 = float(os.environ.get("gamma2", 1))
+                gamma2 = self.gamma2
 
                 H_i = H.unsqueeze(2)
                 H_j = H.unsqueeze(1)
@@ -428,28 +434,28 @@ class Agent:
 
                 loss1 = -surr + 0.5 * value_loss
                 if i == 0:
-                    loss2 = gamma1 * lap_quad - gamma2 * sec_eig_upperbound
+                    loss2 = lap_quad - gamma2 * sec_eig_upperbound
 
                 if l == 0:
                     #second_eigenvalue = torch.mean(torch.tensor([torch.linalg.eigh(L[t, :, :])[0][1] for t in range(time_step)]))/cfg.n_data_parallelism
-                    cum_loss1 = loss1 / cfg.n_data_parallelism
+                    cum_loss1 = loss1 / self.n_data_parallelism
                     if i == 0:
-                        cum_loss2 = loss2 / cfg.n_data_parallelism
+                        cum_loss2 = loss2 / self.n_data_parallelism
                 else:
                     #second_eigenvalue += torch.mean(torch.tensor([torch.linalg.eigh(L[t, :, :])[0][1] for t in range(time_step)]))/cfg.n_data_parallelism
-                    cum_loss1 = cum_loss1 + loss1 / cfg.n_data_parallelism
+                    cum_loss1 = cum_loss1 + loss1 / self.n_data_parallelism
                     if i == 0:
-                        cum_loss2 = cum_loss2 + loss2 / cfg.n_data_parallelism
+                        cum_loss2 = cum_loss2 + loss2 / self.n_data_parallelism
 
 
                 if l == 0:
-                    cum_surr               += surr.tolist() / (cfg.n_data_parallelism * self.K_epoch)
-                    cum_value_loss         += value_loss.tolist() / (cfg.n_data_parallelism * self.K_epoch)
-                    cum_lap_quad           += lap_quad.tolist() / cfg.n_data_parallelism
-                    cum_sec_eig_upperbound += sec_eig_upperbound.tolist()  / cfg.n_data_parallelism
+                    cum_surr               += surr.tolist() / (self.n_data_parallelism * self.K_epoch)
+                    cum_value_loss         += value_loss.tolist() / (self.n_data_parallelism * self.K_epoch)
+                    cum_lap_quad           += lap_quad.tolist() / self.n_data_parallelism
+                    cum_sec_eig_upperbound += sec_eig_upperbound.tolist()  / self.n_data_parallelism
                 else:
-                    cum_surr       += surr.tolist() / (cfg.n_data_parallelism * self.K_epoch)
-                    cum_value_loss += value_loss.tolist() / (cfg.n_data_parallelism * self.K_epoch)
+                    cum_surr       += surr.tolist() / (self.n_data_parallelism * self.K_epoch)
+                    cum_value_loss += value_loss.tolist() / (self.n_data_parallelism * self.K_epoch)
 
 
             cum_loss1.backward(retain_graph=True)

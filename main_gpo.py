@@ -115,7 +115,7 @@ def get_agent_type_of_envs(envs):
 
 
 
-def train(agent, env, e, t, initializer):
+def train(agent, env, e, t, monitor, params):
     max_episode_limit = env.episode_limit
     env.reset()
     done = False
@@ -150,13 +150,19 @@ def train(agent, env, e, t, initializer):
             eval = True
     if cfg.vessl_on == True:
         vessl.log(step=e, payload={'episode_reward': episode_reward})
-    if (e % cfg.n_data_parallelism == 0) and (e > 0):
+    if (e % params["n_data_parallelism"] == 0) and (e > 0):
         cum_surr, cum_value_loss, cum_lap_quad, cum_sec_eig_upperbound = agent.learn()
+        monitor.append((e, cum_surr, cum_value_loss, cum_lap_quad, cum_sec_eig_upperbound))
+        df = pd.DataFrame(monitor)
+        df.to_csv("df.csv")
+        #print(cum_surr, cum_value_loss, cum_lap_quad, cum_sec_eig_upperbound)
         if cfg.vessl_on == True:
             vessl.log(step = e, payload = {'surrogate loss' : cum_surr})
             vessl.log(step = e, payload = {'value loss': cum_value_loss})
             vessl.log(step = e, payload = {'laplacian quadractic': cum_lap_quad})
             vessl.log(step = e, payload = {'second eigenvalue': cum_sec_eig_upperbound})
+
+
 
 
 
@@ -184,6 +190,13 @@ def main():
             "n_representation_action": int(os.environ.get("n_representation_action", 32)),
             "graph_embedding": int(os.environ.get("graph_embedding", 32)),
             "learning_rate": cfg.lr,
+
+
+            "learning_rate_graph": float(os.environ.get("learning_rate_graph", 1e-3)),
+            "gamma2": float(os.environ.get("gamma2", 2)),
+            "n_data_parallelism": int(os.environ.get("n_data_parallelism", 5)),
+
+
             "gamma": cfg.gamma,
             "ppo_layers": cfg.ppo_layers,
             "lmbda": cfg.lmbda,
@@ -201,6 +214,11 @@ def main():
             "n_representation_action": cfg.n_representation_action,
             "graph_embedding": cfg.graph_embedding,
             "learning_rate": cfg.lr,
+
+            "learning_rate_graph": cfg.lr_graph,
+            "gamma1": cfg.gamma1,
+            "n_data_parallelism": cfg.n_data_parallelism,
+
             "gamma": cfg.gamma,
             "ppo_layers": cfg.ppo_layers,
             "lmbda": cfg.lmbda,
@@ -233,8 +251,9 @@ def main():
     epi_r = []
     win_rates = []
     eval = False
+    monitor = []
     for e in range(num_episode):
-        episode_reward, t, eval = train(agent, env, e, t, initializer)
+        episode_reward, t, eval = train(agent, env, e, t, monitor, params)
         epi_r.append(episode_reward)
         if eval == True:
             win_rates = evaluation(env, agent)
