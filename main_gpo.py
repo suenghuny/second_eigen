@@ -160,7 +160,7 @@ def train(agent, env, e, t, monitor, params):
             vessl.log(step = e, payload={'fiedler': second_eigenvalue})
             # vessl.log(step = e, payload = {'surrogate loss' : cum_surr})
             # vessl.log(step = e, payload = {'value loss': cum_value_loss})
-            vessl.log(step = e, payload = {'laplacian quadractic': lap_quad})
+            vessl.log(step = e, payload = {'laplacian quadractic': cum_lap_quad})
             vessl.log(step = e, payload = {'ub': cum_sec_eig_upperbound})
 
 

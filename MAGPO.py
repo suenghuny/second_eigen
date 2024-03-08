@@ -433,7 +433,6 @@ class Agent:
 
                 loss1 = -surr + 0.5 * value_loss
                 if i == 0:
-                    lap_quad0 = lap_quad.cpu().detach().numpy()
                     loss2 = lap_quad - gamma2 * sec_eig_upperbound
 
                 if l == 0:
@@ -451,6 +450,7 @@ class Agent:
                 if l == 0:
                     cum_surr               += surr.tolist() / (self.n_data_parallelism * self.K_epoch)
                     cum_value_loss         += value_loss.tolist() / (self.n_data_parallelism * self.K_epoch)
+
                     cum_lap_quad           += lap_quad.tolist() / self.n_data_parallelism
                     cum_sec_eig_upperbound += sec_eig_upperbound.tolist()  / self.n_data_parallelism
                 else:
@@ -470,7 +470,7 @@ class Agent:
                 self.optimizer2.zero_grad()
 
         self.batch_store = list()
-        return cum_surr, cum_value_loss, cum_lap_quad, cum_sec_eig_upperbound, second_eigenvalue, lap_quad0
+        return cum_surr, cum_value_loss, cum_lap_quad, cum_sec_eig_upperbound, second_eigenvalue
 
     # def load_network(self, file_dir):
     #     print(file_dir)
