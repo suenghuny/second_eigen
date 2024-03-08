@@ -429,19 +429,20 @@ class Agent:
                 surr = torch.min(surr1, surr2).mean()
                 value_loss =  F.smooth_l1_loss(v_s, td_target.detach()).mean()
                 lap_quad = laplacian_quadratic.mean()
-                sec_eig_upperbound = frobenius_norm.mean() - n**2 * var.mean()
+                sec_eig_upperbound = (num_nodes*(num_nodes-1))**2*(frobenius_norm.mean() - num_nodes**2 * var.mean())
 
                 loss1 = -surr + 0.5 * value_loss
                 if i == 0:
+                    lap_quad0 = lap_quad.cpu().detach().numpy()
                     loss2 = lap_quad - gamma2 * sec_eig_upperbound
 
                 if l == 0:
-                    second_eigenvalue = np.mean(np.array([np.linalg.eigh(L[t, :, :].cpu().detach().numpy())[0][1] for t in range(time_step)]))/cfg.n_data_parallelism
+                    second_eigenvalue = np.mean(np.array([np.linalg.eigh(L[t, :, :].cpu().detach().numpy())[0][1]**2 for t in range(time_step)]))/cfg.n_data_parallelism
                     cum_loss1 = loss1 / self.n_data_parallelism
                     if i == 0:
                         cum_loss2 = loss2 / self.n_data_parallelism
                 else:
-                    second_eigenvalue += np.mean(np.array([np.linalg.eigh(L[t, :, :].cpu().detach().numpy())[0][1] for t in range(time_step)]))/cfg.n_data_parallelism
+                    second_eigenvalue += np.mean(np.array([np.linalg.eigh(L[t, :, :].cpu().detach().numpy())[0][1]**2 for t in range(time_step)]))/cfg.n_data_parallelism
                     cum_loss1 = cum_loss1 + loss1 / self.n_data_parallelism
                     if i == 0:
                         cum_loss2 = cum_loss2 + loss2 / self.n_data_parallelism
@@ -469,7 +470,7 @@ class Agent:
                 self.optimizer2.zero_grad()
 
         self.batch_store = list()
-        return cum_surr, cum_value_loss, cum_lap_quad, cum_sec_eig_upperbound, second_eigenvalue
+        return cum_surr, cum_value_loss, cum_lap_quad, cum_sec_eig_upperbound, second_eigenvalue, lap_quad0
 
     # def load_network(self, file_dir):
     #     print(file_dir)
