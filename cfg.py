@@ -16,7 +16,7 @@ def get_cfg():
     parser.add_argument("--scheduler_ratio", type=float, default=0.5, help= "scheduler ratio")
     parser.add_argument("--negativeslope", type=float, default=0.1, help="leaky relu negative slope")
     parser.add_argument("--vessl", type=bool, default=False, help="vessl AI 사용여부")
-    parser.add_argument("--map_name", type=str, default='3s5z_vs_3s6z', help="map name")
+    parser.add_argument("--map_name", type=str, default='3m', help="map name")
 
     parser.add_argument("--hidden_size_obs", type=int, default=32, help="")
     parser.add_argument("--hidden_size_action", type=int, default=36, help="")

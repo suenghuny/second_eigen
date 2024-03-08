@@ -151,16 +151,17 @@ def train(agent, env, e, t, monitor, params):
     if cfg.vessl_on == True:
         vessl.log(step=e, payload={'episode_reward': episode_reward})
     if (e % params["n_data_parallelism"] == 0) and (e > 0):
-        cum_surr, cum_value_loss, cum_lap_quad, cum_sec_eig_upperbound = agent.learn()
+        cum_surr, cum_value_loss, cum_lap_quad, cum_sec_eig_upperbound, second_eigenvalue = agent.learn()
         monitor.append((e, cum_surr, cum_value_loss, cum_lap_quad, cum_sec_eig_upperbound))
         df = pd.DataFrame(monitor)
-        df.to_csv("df.csv")
-        #print(cum_surr, cum_value_loss, cum_lap_quad, cum_sec_eig_upperbound)
+
         if cfg.vessl_on == True:
+            df.to_csv("/output/df.csv")
+            vessl.log(step = e, payload={'fiedler': second_eigenvalue})
             vessl.log(step = e, payload = {'surrogate loss' : cum_surr})
             vessl.log(step = e, payload = {'value loss': cum_value_loss})
             vessl.log(step = e, payload = {'laplacian quadractic': cum_lap_quad})
-            vessl.log(step = e, payload = {'second eigenvalue': cum_sec_eig_upperbound})
+            vessl.log(step = e, payload = {'ub': cum_sec_eig_upperbound})
 
 
 
@@ -184,16 +185,16 @@ def main():
     env.generate_num_unit_types(num_unit_types, unit_type_ids)
     if cfg.sweep == True:
         params = {
-            "hidden_size_obs": int(os.environ.get("hidden_size_obs", 32)),
-            "hidden_size_action": int(os.environ.get("hidden_size_action", 32)),
-            "n_representation_obs": int(os.environ.get("n_representation_obs", 32)),
-            "n_representation_action": int(os.environ.get("n_representation_action", 32)),
-            "graph_embedding": int(os.environ.get("graph_embedding", 32)),
+            "hidden_size_obs": int(os.environ.get("hidden_size_obs", 64)),
+            "hidden_size_action": int(os.environ.get("hidden_size_action", 64)),
+            "n_representation_obs": int(os.environ.get("n_representation_obs", 30)),
+            "n_representation_action": int(os.environ.get("n_representation_action", 48)),
+            "graph_embedding": int(os.environ.get("graph_embedding", 60)),
             "learning_rate": cfg.lr,
 
 
-            "learning_rate_graph": float(os.environ.get("learning_rate_graph", 1e-3)),
-            "gamma2": float(os.environ.get("gamma2", 2)),
+            "learning_rate_graph": float(os.environ.get("learning_rate_graph", 0.0005387456623850075)),
+            "gamma2": float(os.environ.get("gamma2", 3.8099857035077775)),
             "n_data_parallelism": int(os.environ.get("n_data_parallelism", 5)),
 
 

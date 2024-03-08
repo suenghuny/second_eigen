@@ -437,12 +437,12 @@ class Agent:
                     loss2 = lap_quad - gamma2 * sec_eig_upperbound
 
                 if l == 0:
-                    #second_eigenvalue = torch.mean(torch.tensor([torch.linalg.eigh(L[t, :, :])[0][1] for t in range(time_step)]))/cfg.n_data_parallelism
+                    second_eigenvalue = np.mean(np.array([np.linalg.eigh(L[t, :, :].cpu().detach().numpy())[0][1] for t in range(time_step)]))/cfg.n_data_parallelism
                     cum_loss1 = loss1 / self.n_data_parallelism
                     if i == 0:
                         cum_loss2 = loss2 / self.n_data_parallelism
                 else:
-                    #second_eigenvalue += torch.mean(torch.tensor([torch.linalg.eigh(L[t, :, :])[0][1] for t in range(time_step)]))/cfg.n_data_parallelism
+                    second_eigenvalue += np.mean(np.array([np.linalg.eigh(L[t, :, :].cpu().detach().numpy())[0][1] for t in range(time_step)]))/cfg.n_data_parallelism
                     cum_loss1 = cum_loss1 + loss1 / self.n_data_parallelism
                     if i == 0:
                         cum_loss2 = cum_loss2 + loss2 / self.n_data_parallelism
@@ -462,6 +462,7 @@ class Agent:
             torch.nn.utils.clip_grad_norm_(self.eval_params, cfg.grad_clip)
             self.optimizer1.step()
             self.optimizer1.zero_grad()
+            print(second_eigenvalue)
             if i == 0:
                 cum_loss2.backward()
                 torch.nn.utils.clip_grad_norm_(self.eval_params2, cfg.grad_clip)
@@ -469,7 +470,7 @@ class Agent:
                 self.optimizer2.zero_grad()
 
         self.batch_store = list()
-        return cum_surr, cum_value_loss, cum_lap_quad, cum_sec_eig_upperbound
+        return cum_surr, cum_value_loss, cum_lap_quad, cum_sec_eig_upperbound, second_eigenvalue
 
     # def load_network(self, file_dir):
     #     print(file_dir)
