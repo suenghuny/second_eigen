@@ -15,7 +15,6 @@ def get_cfg():
     parser.add_argument("--scheduler_step", type =int, default=1000, help= "scheduler step")
     parser.add_argument("--scheduler_ratio", type=float, default=0.5, help= "scheduler ratio")
     parser.add_argument("--negativeslope", type=float, default=0.1, help="leaky relu negative slope")
-    parser.add_argument("--vessl", type=bool, default=False, help="vessl AI 사용여부")
     parser.add_argument("--map_name", type=str, default='3m', help="map name")
 
     parser.add_argument("--hidden_size_obs", type=int, default=32, help="")
@@ -26,7 +25,7 @@ def get_cfg():
     parser.add_argument("--lr", type=float, default=1.e-4, help="learning rate")
     parser.add_argument("--lr_graph", type=float, default=1.e-3, help="learning rate")
     parser.add_argument("--n_data_parallelism", type=int, default=5, help="")
-    parser.add_argument("--grad_clip", type=float, default=20, help="")
+    parser.add_argument("--grad_clip", type=float, default=5, help="")
     parser.add_argument("--vessl_on", type=bool, default=False, help="")
     parser.add_argument("--gamma1", type=float, default=1.0, help="")
 

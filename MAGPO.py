@@ -387,9 +387,8 @@ class Agent:
 
                     prob = torch.softmax(logit, dim=-1)
                     actions = action_list[:, n].unsqueeze(1)
+                    # print(prob.shape, actions.shape)
                     pi = prob.gather(1, actions)
-
-
                     if n == 0:
                         pi_new = pi
                     else:
@@ -459,13 +458,13 @@ class Agent:
 
 
             cum_loss1.backward(retain_graph=True)
-            torch.nn.utils.clip_grad_norm_(self.eval_params, cfg.grad_clip)
+            torch.nn.utils.clip_grad_norm_(self.eval_params, float(os.environ.get("grad_clip1", 10)))
             self.optimizer1.step()
             self.optimizer1.zero_grad()
             print(second_eigenvalue)
             if i == 0:
                 cum_loss2.backward()
-                torch.nn.utils.clip_grad_norm_(self.eval_params2, cfg.grad_clip)
+                torch.nn.utils.clip_grad_norm_(self.eval_params2, float(os.environ.get("grad_clip2", 10)))
                 self.optimizer2.step()
                 self.optimizer2.zero_grad()
 
