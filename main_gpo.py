@@ -151,7 +151,7 @@ def train(agent, env, e, t, monitor, params):
     if cfg.vessl_on == True:
         vessl.log(step=e, payload={'episode_reward': episode_reward})
     if (e % params["n_data_parallelism"] == 0) and (e > 0):
-        cum_surr, cum_value_loss, cum_lap_quad, cum_sec_eig_upperbound, second_eigenvalue, lap_quad = agent.learn()
+        cum_surr, cum_value_loss, cum_lap_quad, cum_sec_eig_upperbound, second_eigenvalue= agent.learn()
         monitor.append((e, cum_surr, cum_value_loss, cum_lap_quad, cum_sec_eig_upperbound))
         df = pd.DataFrame(monitor)
 
