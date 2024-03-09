@@ -247,7 +247,7 @@ def main():
     initializer = True
     agent = Agent(params)
 
-    num_episode = 10000
+    num_episode = 100000
     t = 0
     epi_r = []
     win_rates = []
