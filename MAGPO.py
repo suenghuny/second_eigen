@@ -107,10 +107,13 @@ class Agent:
         self.action_size = params["action_size"]
         self.feature_size = params["feature_size"]
         self.hidden_size_obs = params["hidden_size_obs"]
+        self.hidden_size_comm = params["hidden_size_comm"]
         self.hidden_size_action = params["hidden_size_action"]
         self.n_representation_obs = params["n_representation_obs"]
+        self.n_representation_comm = params["n_representation_comm"]
         self.n_representation_action = params["n_representation_action"]
         self.graph_embedding = params["graph_embedding"]
+        self.graph_embedding_comm = params["graph_embedding_comm"]
         self.learning_rate = params["learning_rate"]
         self.gamma = params["gamma"]
 
@@ -146,15 +149,22 @@ class Agent:
         self.node_representation =   NodeEmbedding(feature_size=self.feature_size,
                                                    hidden_size=self.hidden_size_obs,
                                                    n_representation_obs=self.n_representation_obs).to(device)  # 수정사항
-        self.action_representation = NodeEmbedding(feature_size=self.feature_size + 6 - 1,
+
+        self.node_representation_comm = NodeEmbedding(feature_size =self.feature_size,
+                                                      hidden_size  =self.hidden_size_comm,
+                                                      n_representation_obs=self.n_representation_comm).to(device)  # 수정사항
+
+        self.action_representation = NodeEmbedding(feature_size=self.feature_size + 5,
                                                    hidden_size=self.hidden_size_action,
                                                    n_representation_obs=self.n_representation_action).to(device)  # 수정사항
 
 
 
 
-        self.func_obs  = GLCN(feature_size=self.n_representation_obs, graph_embedding_size=self.graph_embedding, link_prediction = False).to(device)
-        self.func_glcn = GLCN(feature_size=self.graph_embedding,      graph_embedding_size=self.graph_embedding, link_prediction = True).to(device)
+        self.func_obs  = GLCN(feature_size=self.n_representation_obs,  graph_embedding_size=self.graph_embedding, link_prediction = False).to(device)
+        self.func_glcn = GLCN(feature_size=self.graph_embedding+self.n_representation_comm,
+
+                            graph_embedding_size=self.graph_embedding_comm, link_prediction = True).to(device)
 
         self.network = PPONetwork(state_size=self.graph_embedding,
                                   state_action_size=self.graph_embedding + self.n_representation_action,
@@ -163,6 +173,7 @@ class Agent:
 
         self.eval_params = list(self.network.parameters()) + \
                            list(self.node_representation.parameters()) + \
+                           list(self.node_representation_comm.parameters()) + \
                            list(self.action_representation.parameters()) + \
                            list(self.func_obs.parameters()) + \
                            list(self.func_glcn.parameters())
@@ -234,26 +245,31 @@ class Agent:
         if mini_batch == False:
             with torch.no_grad():
                 node_feature = torch.tensor(node_feature, dtype=torch.float,device=device)
-                node_embedding_enemy_obs = self.node_representation(node_feature)
+                node_embedding_obs = self.node_representation(node_feature)
+                node_embedding_comm = self.node_representation_comm(node_feature)
+
                 edge_index_obs = torch.tensor(edge_index_obs, dtype=torch.long, device=device)
-                node_embedding = self.func_obs(X = node_embedding_enemy_obs, A = edge_index_obs)
-                node_embedding, A, H = self.func_glcn(X = node_embedding, A = None)
-            return node_embedding, A, H
+                node_embedding_obs = self.func_obs(X = node_embedding_obs, A = edge_index_obs)
+
+                cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim = 1)
+
+
+                node_embedding, A, X = self.func_glcn(X = cat_embedding, A = None)
+            return node_embedding, A, X
         else:
-
             node_feature = torch.tensor(node_feature, dtype=torch.float, device=device)
-            node_embedding_enemy_obs = self.node_representation(node_feature)
-            node_embedding = self.func_obs(X = node_embedding_enemy_obs, A = edge_index_obs, mini_batch = mini_batch)
-            node_embedding, A, H, D = self.func_glcn(X = node_embedding, A = None, mini_batch = mini_batch)
-            return node_embedding, A, H, D
+            node_embedding_obs = self.node_representation(node_feature)
+            node_embedding_comm = self.node_representation_comm(node_feature)
+
+            node_embedding_obs = self.func_obs(X = node_embedding_obs, A = edge_index_obs, mini_batch = mini_batch)
+
+            cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim=2)
 
 
-    def get_ship_representation(self, ship_features):
-        """ship
-        feature 만드는 부분"""
-        ship_features = torch.tensor(ship_features,dtype=torch.float).to(device).squeeze(1)
-        node_embedding_ship_features = self.node_representation_ship_feature(ship_features)
-        return node_embedding_ship_features
+            node_embedding, A, X, D = self.func_glcn(X = cat_embedding, A = None, mini_batch = mini_batch)
+            return node_embedding, A, X, D
+
+
 
 
 
@@ -346,7 +362,7 @@ class Agent:
                 num_action = action_feature.shape[1]
                 time_step = node_features_list.shape[0]
 
-                node_embedding, A, H, _ = self.get_node_representation_gpo(
+                node_embedding, A, X, _ = self.get_node_representation_gpo(
                                                                         node_features_list,
                                                                         edge_index_enemy_list,
                                                                         mini_batch=True
@@ -413,9 +429,9 @@ class Agent:
 
                 gamma2 = self.gamma2
 
-                H_i = H.unsqueeze(2)
-                H_j = H.unsqueeze(1)
-                euclidean_distance =  torch.sum((H_i - H_j)**2, dim = 3).detach()
+                X_i = X.unsqueeze(2)
+                X_j = X.unsqueeze(1)
+                euclidean_distance =  torch.sum((X_i - X_j)**2, dim = 3).detach()
                 laplacian_quadratic = torch.sum(euclidean_distance*A, dim = (1, 2))
 
                 frobenius_norm = torch.sum(A**2, dim = (1, 2))
@@ -491,6 +507,7 @@ class Agent:
         if eval == True:
             self.network.eval()
             self.node_representation.eval()
+            self.node_representation_comm.eval()
             self.action_representation.eval()
             self.func_obs.eval()
             self.func_glcn.eval()
@@ -498,6 +515,7 @@ class Agent:
         else:
             self.network.train()
             self.node_representation.train()
+            self.node_representation_comm.train()
             self.action_representation.train()
             self.func_obs.train()
             self.func_glcn.train()

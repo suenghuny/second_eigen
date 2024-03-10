@@ -57,8 +57,8 @@ class NodeEmbedding(nn.Module):
         super(NodeEmbedding, self).__init__()
         self.feature_size = feature_size
         self.fcn_1 = nn.Linear(feature_size, hidden_size+10)
-        self.fcn_2 = nn.Linear(hidden_size+10, hidden_size+10)
-        self.fcn_3 = nn.Linear(hidden_size+10, n_representation_obs)
+        self.fcn_2 = nn.Linear(hidden_size+10, hidden_size)
+        self.fcn_3 = nn.Linear(hidden_size, n_representation_obs)
         torch.nn.init.xavier_uniform_(self.fcn_1.weight)
         torch.nn.init.xavier_uniform_(self.fcn_2.weight)
         torch.nn.init.xavier_uniform_(self.fcn_3.weight)

@@ -186,13 +186,14 @@ def main():
     if cfg.sweep == True:
         params = {
             "hidden_size_obs": int(os.environ.get("hidden_size_obs", 64)),
+            "hidden_size_comm": int(os.environ.get("hidden_size_comm", 64)),
             "hidden_size_action": int(os.environ.get("hidden_size_action", 64)),
             "n_representation_obs": int(os.environ.get("n_representation_obs", 30)),
+            "n_representation_comm": int(os.environ.get("n_representation_comm", 30)),
             "n_representation_action": int(os.environ.get("n_representation_action", 48)),
             "graph_embedding": int(os.environ.get("graph_embedding", 84)),
+            "graph_embedding_comm": int(os.environ.get("graph_embedding_comm", 84)),
             "learning_rate": cfg.lr,
-
-
             "learning_rate_graph": float(os.environ.get("learning_rate_graph", 0.0005387456623850075)),
             "gamma2": float(os.environ.get("gamma2", 6)),
             "n_data_parallelism": int(os.environ.get("n_data_parallelism", 5)),

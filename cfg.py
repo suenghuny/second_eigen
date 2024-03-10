@@ -18,8 +18,10 @@ def get_cfg():
     parser.add_argument("--map_name", type=str, default='6h_vs_8z', help="map name")
 
     parser.add_argument("--hidden_size_obs", type=int, default=32, help="")
+    parser.add_argument("--hidden_size_comm", type=int, default=32, help="")
     parser.add_argument("--hidden_size_action", type=int, default=36, help="")
     parser.add_argument("--n_representation_obs", type=int, default=28, help="")
+    parser.add_argument("--n_representation_comm", type=int, default=28, help="")
     parser.add_argument("--n_representation_action", type=int, default=24, help="")
     parser.add_argument("--graph_embedding", type=int, default=32, help="")
     parser.add_argument("--lr", type=float, default=1.e-4, help="learning rate")

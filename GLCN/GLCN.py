@@ -86,27 +86,19 @@ class GLCN(nn.Module):
         nn.init.xavier_uniform_(self.a.data, gain=1.414)
         self.link_prediction = link_prediction
         if self.link_prediction == True:
-            self.a_link = nn.Parameter(torch.empty(size=(graph_embedding_size, 1)))
+            self.a_link = nn.Parameter(torch.empty(size=(feature_size, 1)))
             nn.init.xavier_uniform_(self.a_link.data, gain=1.414)
             self.k_hop = int(os.environ.get("k_hop",3))
-            self.W = [nn.Parameter(torch.Tensor(size=(graph_embedding_size, graph_embedding_size)))
-                      for _ in range(self.k_hop)]
+            self.W = [nn.Parameter(torch.Tensor(size=(feature_size, graph_embedding_size))) if k == 0 else nn.Parameter(torch.Tensor(size=(graph_embedding_size, graph_embedding_size)))
+                      for k in range(self.k_hop) ]
             [glorot(W) for W in self.W]
             self.W = nn.ParameterList(self.W)
 
 
 
     def _link_prediction(self, h, mini_batch = False):
-        #print((h.unsqueeze(1) - h.unsqueeze(0)).shape)
-        #print(torch.abs(h.unsqueeze(1) - h.unsqueeze(0)))
         h = torch.einsum("ijk,kl->ijl", torch.abs(h.unsqueeze(1) - h.unsqueeze(0)), self.a_link)
-
         A = F.hardsigmoid(h).squeeze(2)
-        #print(A)
-        # D = torch.diag(torch.diag(A))
-        # #print(A.shape, D.shape)
-        # A = A-D
-
         return A
 
 
