@@ -116,7 +116,7 @@ class Agent:
         self.graph_embedding_comm = params["graph_embedding_comm"]
         self.learning_rate = params["learning_rate"]
         self.gamma = params["gamma"]
-
+        self.gamma1 = params["gamma1"]
         self.gamma2 = params["gamma2"]
         self.learning_rate_graph = params["learning_rate_graph"]
         self.n_data_parallelism = params["n_data_parallelism"]
@@ -161,13 +161,13 @@ class Agent:
 
 
 
-        self.func_obs  = GLCN(feature_size=self.n_representation_obs,  graph_embedding_size=self.graph_embedding, link_prediction = False).to(device)
+        self.func_obs  = GLCN(feature_size=self.n_representation_obs,
+                              graph_embedding_size=self.graph_embedding, link_prediction = False).to(device)
         self.func_glcn = GLCN(feature_size=self.graph_embedding+self.n_representation_comm,
-
                             graph_embedding_size=self.graph_embedding_comm, link_prediction = True).to(device)
 
         self.network = PPONetwork(state_size=self.graph_embedding_comm,
-                                  state_action_size=self.graph_embedding + self.n_representation_action,
+                                  state_action_size=self.graph_embedding_comm + self.n_representation_action,
                                   layers=self.layers).to(device)
 
 
@@ -178,12 +178,9 @@ class Agent:
                            list(self.func_obs.parameters()) + \
                            list(self.func_glcn.parameters())
 
-        self.eval_params2 = list(self.func_glcn.parameters())
-
 
         if cfg.optimizer == 'ADAM':
             self.optimizer1 = optim.Adam(self.eval_params, lr=self.learning_rate)  #
-            self.optimizer2 = optim.Adam(self.eval_params, lr=self.learning_rate_graph)  #
         if cfg.optimizer == 'ADAMW':
             self.optimizer = optim.AdamW(self.eval_params, lr=self.learning_rate)  #
         self.scheduler = StepLR(optimizer=self.optimizer1, step_size=cfg.scheduler_step, gamma=cfg.scheduler_ratio)
@@ -426,7 +423,7 @@ class Agent:
                 ratio = torch.exp(torch.log(pi_new) - torch.log(pi_old).detach())  # a/b == exp(log(a)-log(b))
                 surr1 = ratio * (advantage.detach().squeeze())
                 surr2 = torch.clamp(ratio, 1 - self.eps_clip, 1 + self.eps_clip) * (advantage.detach().squeeze())
-
+                gamma1 = self.gamma1
                 gamma2 = self.gamma2
 
                 X_i = X.unsqueeze(2)
@@ -447,47 +444,39 @@ class Agent:
                 lap_quad = laplacian_quadratic.mean()
                 sec_eig_upperbound = (num_nodes*(num_nodes-1))**2*(frobenius_norm.mean() - num_nodes**2 * var.mean())
 
-                loss1 = -surr + 0.5 * value_loss
 
-                if i == 0:
-                    if cfg.softmax == True:
-                        loss2 = lap_quad + gamma2 * frobenius_norm.mean()
-                    else:
-                        loss2 = lap_quad - gamma2 * sec_eig_upperbound
+                if cfg.softmax == True:
+                    loss = -surr + 0.5 * value_loss+ gamma1* lap_quad + gamma2 * frobenius_norm.mean()
+                else:
+                    loss = -surr + 0.5 * value_loss+ gamma1* lap_quad - gamma2 * sec_eig_upperbound
+
 
                 if l == 0:
                     second_eigenvalue = np.mean(np.array([np.linalg.eigh(L[t, :, :].cpu().detach().numpy())[0][1]**2 for t in range(time_step)]))/cfg.n_data_parallelism
-                    cum_loss1 = loss1 / self.n_data_parallelism
-                    if i == 0:
-                        cum_loss2 = loss2 / self.n_data_parallelism
+                    cum_loss = loss / self.n_data_parallelism
                 else:
                     second_eigenvalue += np.mean(np.array([np.linalg.eigh(L[t, :, :].cpu().detach().numpy())[0][1]**2 for t in range(time_step)]))/cfg.n_data_parallelism
-                    cum_loss1 = cum_loss1 + loss1 / self.n_data_parallelism
-                    if i == 0:
-                        cum_loss2 = cum_loss2 + loss2 / self.n_data_parallelism
+                    cum_loss = cum_loss + loss / self.n_data_parallelism
 
 
                 if l == 0:
                     cum_surr               += surr.tolist() / (self.n_data_parallelism * self.K_epoch)
                     cum_value_loss         += value_loss.tolist() / (self.n_data_parallelism * self.K_epoch)
-
-                    cum_lap_quad           += lap_quad.tolist() / self.n_data_parallelism
-                    cum_sec_eig_upperbound += sec_eig_upperbound.tolist()  / self.n_data_parallelism
+                    cum_lap_quad           += lap_quad.tolist() / (self.n_data_parallelism * self.K_epoch)
+                    cum_sec_eig_upperbound += sec_eig_upperbound.tolist()  / (self.n_data_parallelism * self.K_epoch)
                 else:
                     cum_surr       += surr.tolist() / (self.n_data_parallelism * self.K_epoch)
                     cum_value_loss += value_loss.tolist() / (self.n_data_parallelism * self.K_epoch)
+                    cum_lap_quad += lap_quad.tolist() / (self.n_data_parallelism * self.K_epoch)
+                    cum_sec_eig_upperbound += sec_eig_upperbound.tolist() / (self.n_data_parallelism * self.K_epoch)
 
-
-            cum_loss1.backward(retain_graph=True)
-            torch.nn.utils.clip_grad_norm_(self.eval_params, float(os.environ.get("grad_clip1", 10)))
+            grad_clip = float(os.environ.get("grad_clip", 10))
+            cum_loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.eval_params, grad_clip)
             self.optimizer1.step()
             self.optimizer1.zero_grad()
             print(second_eigenvalue)
-            if i == 0:
-                cum_loss2.backward()
-                torch.nn.utils.clip_grad_norm_(self.eval_params2, float(os.environ.get("grad_clip2", 10)))
-                self.optimizer2.step()
-                self.optimizer2.zero_grad()
+
 
         self.batch_store = list()
         return cum_surr, cum_value_loss, cum_lap_quad, cum_sec_eig_upperbound, second_eigenvalue

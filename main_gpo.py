@@ -79,7 +79,6 @@ def evaluation(env, agent):
             reward, done, info = env.step(action)
             episode_reward += reward
             win_tag = True if done and 'battle_won' in info and info['battle_won'] else False
-            episode_reward += reward
             t += 1
             step += 1
         print("map name {} : Evaluation episode {}, episode reward {}, win_tag {}".format(env.map_name, e, episode_reward, win_tag))
@@ -192,9 +191,10 @@ def main():
             "n_representation_comm": int(os.environ.get("n_representation_comm", 30)),
             "n_representation_action": int(os.environ.get("n_representation_action", 48)),
             "graph_embedding": int(os.environ.get("graph_embedding", 84)),
-            "graph_embedding_comm": int(os.environ.get("graph_embedding_comm", 84)),
+            "graph_embedding_comm": int(os.environ.get("graph_embedding_comm", 72)),
             "learning_rate": cfg.lr,
             "learning_rate_graph": float(os.environ.get("learning_rate_graph", 0.0005387456623850075)),
+            "gamma1": float(os.environ.get("gamma1", 3)),
             "gamma2": float(os.environ.get("gamma2", 6)),
             "n_data_parallelism": int(os.environ.get("n_data_parallelism", 5)),
 
