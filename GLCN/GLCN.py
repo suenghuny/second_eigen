@@ -162,6 +162,9 @@ class GLCN(nn.Module):
             if mini_batch == False:
                 #print("뒹벳글자", X)
                 A = self._link_prediction(X, mini_batch = mini_batch)
+
+
+
                 I = torch.eye(A.size(0)).to(device)
                 A_hat = A + I
                 D_hat_diag = torch.sum(A_hat, dim=0)

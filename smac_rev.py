@@ -1073,12 +1073,12 @@ class StarCraft2Env(MultiAgentEnv):
 
     def get_enemy_visibility_edge_index(self, heterogeneous = False):
         edge_index = [[], []]
-        if heterogeneous == False:
-            for agent_id in range(self.n_agents):
-                edge_index[0].append(agent_id)
-                edge_index[1].append(agent_id)
-        else:
-            pass
+        # if heterogeneous == False:
+        #     for agent_id in range(self.n_agents):
+        #         edge_index[0].append(agent_id)
+        #         edge_index[1].append(agent_id)
+        # else:
+        #     pass
 
         for agent_id in range(self.n_agents):
             current_agent = self.get_unit_by_id(agent_id)
@@ -1096,6 +1096,8 @@ class StarCraft2Env(MultiAgentEnv):
                         # visible and alive
                         edge_index[0].append(agent_id)
                         edge_index[1].append(e_id + self.n_agents)
+                        edge_index[1].append(agent_id)
+                        edge_index[0].append(e_id + self.n_agents)
 
         return edge_index
 
