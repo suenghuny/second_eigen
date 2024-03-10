@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
+import os
 import torch.nn.functional as F
 
 from collections import OrderedDict
@@ -70,7 +71,7 @@ class LinkPrediction(nn.Module):
         return node_representation
 
 class GLCN(nn.Module):
-    def __init__(self, feature_size, graph_embedding_size, link_prediction = True):
+    def __init__(self, feature_size, graph_embedding_size, link_prediction = True, k_hop = 1):
         super(GLCN, self).__init__()
         self.graph_embedding_size = graph_embedding_size
         self.Ws = nn.Parameter(torch.Tensor(feature_size, graph_embedding_size))
@@ -86,9 +87,14 @@ class GLCN(nn.Module):
         self.link_prediction = link_prediction
         if self.link_prediction == True:
             self.a_link = nn.Parameter(torch.empty(size=(graph_embedding_size, 1)))
-            self.W = nn.Parameter(torch.Tensor(size=(graph_embedding_size, graph_embedding_size)))
-            glorot(self.W)
             nn.init.xavier_uniform_(self.a_link.data, gain=1.414)
+            self.k_hop = int(os.environ.get("k_hop",3))
+            self.W = [nn.Parameter(torch.Tensor(size=(graph_embedding_size, graph_embedding_size)))
+                      for _ in range(self.k_hop)]
+            [glorot(W) for W in self.W]
+            self.W = nn.ParameterList(self.W)
+
+
 
     def _link_prediction(self, h, mini_batch = False):
         #print((h.unsqueeze(1) - h.unsqueeze(0)).shape)
@@ -162,9 +168,14 @@ class GLCN(nn.Module):
                 D_hat_diag = torch.sum(A_hat, dim=0)
                 D_hat_inv_sqrt_diag = torch.pow(D_hat_diag, -0.5)
                 D_hat_inv_sqrt = torch.diag(D_hat_inv_sqrt_diag)
-                support = torch.mm(X, self.W)
-                output = torch.mm(torch.mm(D_hat_inv_sqrt, A_hat), D_hat_inv_sqrt)
-                H = torch.mm(output, support)
+                for k in range(self.k_hop):
+                    if k == 0:
+                        support = torch.mm(X, self.W[k])
+                        output = torch.mm(torch.mm(D_hat_inv_sqrt, A_hat), D_hat_inv_sqrt)
+                    else:
+                        support = torch.mm(H, self.W[k])
+                        output = torch.mm(torch.mm(D_hat_inv_sqrt, A_hat), D_hat_inv_sqrt)
+                    H = torch.mm(output, support)
                 return F.relu(H), A, X
             else:
                 num_nodes = X.shape[1]
@@ -182,10 +193,17 @@ class GLCN(nn.Module):
                     D_hat_diag = torch.sum(A_hat, dim=1)
                     D_hat_inv_sqrt_diag = torch.pow(D_hat_diag, -0.5)
                     D_hat_inv_sqrt = torch.diag(D_hat_inv_sqrt_diag)
-                    support = torch.mm(X[b], self.W)
-                    output = torch.mm(torch.mm(D_hat_inv_sqrt, A_hat), D_hat_inv_sqrt)
-                    H = torch.mm(output, support)
-                    H_placeholder.append(H)
+                    for k in range(self.k_hop):
+                        if k == 0:
+                            support = torch.mm(X[b], self.W[k])
+                            output = torch.mm(torch.mm(D_hat_inv_sqrt, A_hat), D_hat_inv_sqrt)
+                        else:
+                            support = torch.mm(H, self.W[k])
+                            output = torch.mm(torch.mm(D_hat_inv_sqrt, A_hat), D_hat_inv_sqrt)
+
+                        H = torch.mm(output, support)
+                        if k+1 == self.k_hop:
+                            H_placeholder.append(H)
                 H = torch.stack(H_placeholder)
                 A = torch.stack(A_placeholder)
                 D = torch.stack(D_placeholder)
