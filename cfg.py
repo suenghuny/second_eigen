@@ -30,6 +30,7 @@ def get_cfg():
     parser.add_argument("--grad_clip", type=float, default=5, help="")
     parser.add_argument("--vessl_on", type=bool, default=False, help="")
     parser.add_argument("--gamma1", type=float, default=1.0, help="")
+    parser.add_argument("--softmax", type=bool, default=False, help="")
     parser.add_argument("--sweep", type=bool, default=True, help="")
 
     parser.add_argument("--num_episode", type=int, default=1000000, help="number of episode")

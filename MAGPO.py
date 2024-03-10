@@ -166,7 +166,7 @@ class Agent:
 
                             graph_embedding_size=self.graph_embedding_comm, link_prediction = True).to(device)
 
-        self.network = PPONetwork(state_size=self.graph_embedding,
+        self.network = PPONetwork(state_size=self.graph_embedding_comm,
                                   state_action_size=self.graph_embedding + self.n_representation_action,
                                   layers=self.layers).to(device)
 
@@ -448,8 +448,12 @@ class Agent:
                 sec_eig_upperbound = (num_nodes*(num_nodes-1))**2*(frobenius_norm.mean() - num_nodes**2 * var.mean())
 
                 loss1 = -surr + 0.5 * value_loss
+
                 if i == 0:
-                    loss2 = lap_quad - gamma2 * sec_eig_upperbound
+                    if cfg.softmax == True:
+                        loss2 = lap_quad + gamma2 * frobenius_norm.mean()
+                    else:
+                        loss2 = lap_quad - gamma2 * sec_eig_upperbound
 
                 if l == 0:
                     second_eigenvalue = np.mean(np.array([np.linalg.eigh(L[t, :, :].cpu().detach().numpy())[0][1]**2 for t in range(time_step)]))/cfg.n_data_parallelism
