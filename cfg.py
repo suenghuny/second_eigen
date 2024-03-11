@@ -26,7 +26,7 @@ def get_cfg():
     parser.add_argument("--graph_embedding", type=int, default=32, help="")
     parser.add_argument("--lr", type=float, default=1.e-4, help="learning rate")
     parser.add_argument("--lr_graph", type=float, default=1.e-3, help="learning rate")
-    parser.add_argument("--n_data_parallelism", type=int, default=10, help="")
+    parser.add_argument("--n_data_parallelism", type=int, default=1, help="")
     parser.add_argument("--grad_clip", type=float, default=5, help="")
     parser.add_argument("--vessl_on", type=bool, default=False, help="")
     parser.add_argument("--gamma1", type=float, default=1.0, help="")

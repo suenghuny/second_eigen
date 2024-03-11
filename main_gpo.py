@@ -194,8 +194,8 @@ def main():
             "graph_embedding_comm": int(os.environ.get("graph_embedding_comm", 72)),
             "learning_rate": cfg.lr,
             "learning_rate_graph": float(os.environ.get("learning_rate_graph", 0.0005387456623850075)),
-            "gamma1": float(os.environ.get("gamma1", 3)),
-            "gamma2": float(os.environ.get("gamma2", 6)),
+            "gamma1": float(os.environ.get("gamma1", 0.1)),
+            "gamma2": float(os.environ.get("gamma2", 2)),
             "n_data_parallelism": int(os.environ.get("n_data_parallelism", 5)),
 
 

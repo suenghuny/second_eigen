@@ -446,9 +446,10 @@ class Agent:
 
 
                 if cfg.softmax == True:
-                    loss = -surr + 0.5 * value_loss+ gamma1* lap_quad + gamma2 * frobenius_norm.mean()
+                    loss = -surr + 0.5 * value_loss+ gamma1* lap_quad + gamma2 * gamma1 * frobenius_norm.mean()
                 else:
-                    loss = -surr + 0.5 * value_loss+ gamma1* lap_quad - gamma2 * sec_eig_upperbound
+                    loss = -surr + 0.5 * value_loss+ gamma1* lap_quad - gamma2 * gamma1 * sec_eig_upperbound
+
 
 
                 if l == 0:
