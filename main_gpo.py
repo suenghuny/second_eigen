@@ -10,6 +10,7 @@ import numpy as np
 import sys
 import os
 import time
+from utils import *
 from cfg import get_cfg
 cfg = get_cfg()
 
@@ -39,25 +40,6 @@ regularizer = 0.0
 map_name1 = cfg.map_name
 heterogenous = False
 
-"""
-
-Protoss
-colossi : 200.0150.01.0
-stalkers : 80.080.00.625
-zealots : 100.050.00.5
-
-Terran
-medivacs  : 150.00.00.75
-marauders : 125.00.00.5625
-marines   : 45.00.00.375
-
-Zerg
-zergling : 35.00.00.375
-hydralisk : 80.00.00.625
-baneling : 30.00.00.375
-spine crawler : 300.00.01.125`
-
-"""
 
 def evaluation(env, agent):
     max_episode_len = env.episode_limit
@@ -69,8 +51,12 @@ def evaluation(env, agent):
         episode_reward = 0
         step = 0
         while (not done) and (step < max_episode_len):
-            node_feature, edge_index_enemy = env.get_heterogeneous_graph2(heterogeneous=heterogenous)
-            node_embedding, _, _ = agent.get_node_representation_gpo(node_feature, edge_index_enemy)
+            node_feature, edge_index_enemy, edge_index_comm = env.get_heterogeneous_graph(heterogeneous=heterogenous)
+            if cfg.given_edge == True:
+                node_embedding = agent.get_node_representation_gpo(node_feature, edge_index_enemy, edge_index_comm)
+            else:
+                node_embedding, _, _ = agent.get_node_representation_gpo(node_feature, edge_index_enemy,
+                                                                         edge_index_comm)
             avail_action = env.get_avail_actions()
             action_feature = env.get_action_feature()  # 차원 : action_size X n_action_feature
             agent.eval_check(eval=True)
@@ -89,28 +75,7 @@ def evaluation(env, agent):
 
 
 
-def get_agent_type_of_envs(envs):
-    agent_type_ids = list()
-    type_alliance = list()
-    for env in envs:
-        for agent_id, _ in env.agents.items():
-            agent = env.get_unit_by_id(agent_id)
-            agent_type_ids.append(str(agent.health_max)+str(agent.shield_max)+str(agent.radius))
-            type_alliance.append([str(agent.health_max)+str(agent.shield_max)+str(agent.radius), agent.alliance])
-        for e_id, e_unit in env.enemies.items():
-            enemy = list(env.enemies.items())[e_id][1]
-            agent_type_ids.append(str(enemy.health_max)+str(enemy.shield_max)+str(enemy.radius))
-            type_alliance.append([str(enemy.health_max)+str(enemy.shield_max)+str(enemy.radius), enemy.alliance])
-    agent_types_list = list(set(agent_type_ids))
-    type_alliance_set = list()
-    for x in type_alliance:
-        if x not in type_alliance_set:
-            type_alliance_set.append(x)
-    print(type_alliance_set)
-    for id in agent_types_list:
-        print("id : ", id, "count : " , agent_type_ids.count(id))
 
-    return len(agent_types_list), agent_types_list
 
 
 
@@ -124,8 +89,11 @@ def train(agent, env, e, t, monitor, params):
     start = time.time()
 
     while (not done) and (step < max_episode_limit):
-        node_feature, edge_index_enemy = env.get_heterogeneous_graph2(heterogeneous=heterogenous)
-        node_embedding, _, _ = agent.get_node_representation_gpo(node_feature, edge_index_enemy)
+        node_feature, edge_index_enemy, edge_index_comm = env.get_heterogeneous_graph(heterogeneous=heterogenous)
+        if cfg.given_edge == True:
+            node_embedding = agent.get_node_representation_gpo(node_feature, edge_index_enemy, edge_index_comm)
+        else:
+            node_embedding, _, _ = agent.get_node_representation_gpo(node_feature, edge_index_enemy, edge_index_comm)
         avail_action = env.get_avail_actions()
         action_feature = env.get_action_feature()  # 차원 : action_size X n_action_feature
         agent.eval_check(eval=True)
@@ -140,6 +108,7 @@ def train(agent, env, e, t, monitor, params):
                       action_feature,
                       reward,
                       done,
+                      edge_index_comm,
                       )
         agent.put_data(transition)
         episode_reward += reward
@@ -195,7 +164,7 @@ def main():
             "learning_rate": cfg.lr,
             "learning_rate_graph": float(os.environ.get("learning_rate_graph", 0.0005387456623850075)),
             "gamma1": float(os.environ.get("gamma1", 0.1)),
-            "gamma2": float(os.environ.get("gamma2", 2)),
+            "gamma2": float(os.environ.get("gamma2", 1e-3)),
             "n_data_parallelism": int(os.environ.get("n_data_parallelism", 5)),
 
 
@@ -257,6 +226,7 @@ def main():
     for e in range(num_episode):
         episode_reward, t, eval = train(agent, env, e, t, monitor, params)
         epi_r.append(episode_reward)
+
         if eval == True:
             win_rates = evaluation(env, agent)
             if cfg.vessl_on == True:

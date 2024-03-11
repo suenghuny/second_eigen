@@ -74,8 +74,7 @@ class GraphAttentionLayer(nn.Module):
                                                         # Wh.shape : (n_node, hidden_size)
 
 
-            h_prime =self.teleport_probability * torch.mm(attention, Wh) + (1-self.teleport_probability) * Wh
-            self._link_prediction(h_prime)
+            h_prime = torch.mm(attention, Wh)
             #print(self._link_prediction(h_prime).shape)
 
         else:
@@ -97,8 +96,7 @@ class GraphAttentionLayer(nn.Module):
 
             attention = F.softmax(attention, dim=2)
             #attention = F.dropout(attention, self.dropout, training=self.training)
-            h_prime = self.teleport_probability * torch.bmm(attention, Wh) + (1-self.teleport_probability) * Wh
-
+            h_prime = torch.bmm(attention, Wh)
 
 
         if self.concat:

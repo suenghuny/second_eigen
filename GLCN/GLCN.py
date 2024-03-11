@@ -97,12 +97,13 @@ class GLCN(nn.Module):
 
 
     def _link_prediction(self, h, mini_batch = False):
+        # A = torch.ones(h.shape[0], h.shape[0]).to(device)
+        # A = A -torch.eye(A.size(0)).to(device)
         if cfg.softmax == True:
             h = torch.einsum("ijk,kl->ijl", torch.abs(h.unsqueeze(1) - h.unsqueeze(0)), self.a_link)
             h = h.squeeze(2)
             A = F.softmax(h, dim = 1)
             A = (A+A.transpose())/2
-
         else:
             h = torch.einsum("ijk,kl->ijl", torch.abs(h.unsqueeze(1) - h.unsqueeze(0)), self.a_link)
             A = F.hardsigmoid(h).squeeze(2)

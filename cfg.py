@@ -26,12 +26,13 @@ def get_cfg():
     parser.add_argument("--graph_embedding", type=int, default=32, help="")
     parser.add_argument("--lr", type=float, default=1.e-4, help="learning rate")
     parser.add_argument("--lr_graph", type=float, default=1.e-3, help="learning rate")
-    parser.add_argument("--n_data_parallelism", type=int, default=1, help="")
+    parser.add_argument("--n_data_parallelism", type=int, default=10, help="")
     parser.add_argument("--grad_clip", type=float, default=5, help="")
     parser.add_argument("--vessl_on", type=bool, default=False, help="")
     parser.add_argument("--gamma1", type=float, default=1.0, help="")
     parser.add_argument("--softmax", type=bool, default=False, help="")
     parser.add_argument("--sweep", type=bool, default=True, help="")
+    parser.add_argument("--given_edge", type=bool, default=True, help="")
 
     parser.add_argument("--num_episode", type=int, default=1000000, help="number of episode")
     # "hidden_size_obs": cfg.hidden_size_obs,

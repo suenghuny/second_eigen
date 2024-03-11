@@ -13,8 +13,6 @@ import numpy as np
 from GAT.model import GAT
 from GAT.layers import device
 from copy import deepcopy
-from GTN.utils import _norm
-from GTN.model_fastgtn import FastGTNs
 from scipy.sparse import csr_matrix
 
 
@@ -202,7 +200,6 @@ class Agent:
                  batch_size,
                  learning_rate,
                  gamma,
-                 GNN,
                  teleport_probability,
                  gtn_beta):
         torch.manual_seed(81)
@@ -245,68 +242,40 @@ class Agent:
 
 
         self.num_nodes = self.num_agent+self.num_enemy
-        self.GNN = GNN
-        if self.GNN == 'GAT':
-            self.Q = Network(n_representation_comm + n_representation_obs, hidden_size_Q).to(device)
-            self.Q_tar = Network(n_representation_comm + n_representation_obs, hidden_size_Q).to(device)
-            self.Q_tar.load_state_dict(self.Q.state_dict())
-            self.node_representation_enemy_obs = NodeEmbedding(feature_size=feature_size, hidden_size=hidden_size_obs,
-                                                               n_representation_obs=n_representation_obs).to(
-                device)  # 수정사항
-            self.node_representation = NodeEmbedding(feature_size=feature_size - 1, hidden_size=hidden_size_obs,
-                                                     n_representation_obs=n_representation_obs).to(device)  # 수정사항
-            self.action_representation = NodeEmbedding(feature_size=feature_size + 6 - 1, hidden_size=hidden_size_obs,
-                                                       n_representation_obs=n_representation_obs).to(device)  # 수정사항
-            self.func_enemy_obs = GAT(nfeat = n_representation_obs,
-                                      nhid = hidden_size_obs,
-                                      nheads = n_multi_head,
-                                      nclass = n_representation_obs,
-                                      dropout = dropout,
-                                      alpha = 0.2,
-                                      mode = 'observation',
-                                      teleport_probability = self.teleport_probability).to(device)
-            self.func_ally_comm = GAT(nfeat = 2 * n_representation_obs,
-                                      nhid = hidden_size_comm,
-                                      nheads = n_multi_head,
-                                      nclass = n_representation_comm,
-                                      dropout = dropout,
-                                      alpha = 0.2,
-                                      mode = 'communication',
-                                      teleport_probability = self.teleport_probability).to(device)   # 수정사항
-            self.eval_params = list(self.VDN.parameters()) + \
-                               list(self.Q.parameters()) + \
-                               list(self.node_representation_enemy_obs.parameters()) + \
-                               list(self.func_enemy_obs.parameters()) + \
-                               list(self.node_representation.parameters()) + \
-                               list(self.func_ally_comm.parameters()) + \
-                               list(self.action_representation.parameters())
-        if self.GNN == 'FastGTN':
-            self.Q = Network(
-                hidden_size_meta_path +
-                n_representation_obs,
-                hidden_size_Q).to(device)
-            self.Q_tar = Network(hidden_size_meta_path + n_representation_obs, hidden_size_Q).to(device)
-            self.action_representation = NodeEmbedding(feature_size=feature_size + 6 - 1, hidden_size=hidden_size_obs,
-                                                       n_representation_obs=n_representation_obs).to(device)  # 수정사항
+        self.Q = Network(n_representation_comm + n_representation_obs, hidden_size_Q).to(device)
+        self.Q_tar = Network(n_representation_comm + n_representation_obs, hidden_size_Q).to(device)
+        self.Q_tar.load_state_dict(self.Q.state_dict())
+        self.node_representation_enemy_obs = NodeEmbedding(feature_size=feature_size, hidden_size=hidden_size_obs,
+                                                           n_representation_obs=n_representation_obs).to(
+            device)  # 수정사항
+        self.node_representation = NodeEmbedding(feature_size=feature_size - 1, hidden_size=hidden_size_obs,
+                                                 n_representation_obs=n_representation_obs).to(device)  # 수정사항
+        self.action_representation = NodeEmbedding(feature_size=feature_size + 6 - 1, hidden_size=hidden_size_obs,
+                                                   n_representation_obs=n_representation_obs).to(device)  # 수정사항
+        self.func_enemy_obs = GAT(nfeat = n_representation_obs,
+                                  nhid = hidden_size_obs,
+                                  nheads = n_multi_head,
+                                  nclass = n_representation_obs,
+                                  dropout = dropout,
+                                  alpha = 0.2,
+                                  mode = 'observation',
+                                  teleport_probability = self.teleport_probability).to(device)
+        self.func_ally_comm = GAT(nfeat = 2 * n_representation_obs,
+                                  nhid = hidden_size_comm,
+                                  nheads = n_multi_head,
+                                  nclass = n_representation_comm,
+                                  dropout = dropout,
+                                  alpha = 0.2,
+                                  mode = 'communication',
+                                  teleport_probability = self.teleport_probability).to(device)   # 수정사항
+        self.eval_params = list(self.VDN.parameters()) + \
+                           list(self.Q.parameters()) + \
+                           list(self.node_representation_enemy_obs.parameters()) + \
+                           list(self.func_enemy_obs.parameters()) + \
+                           list(self.node_representation.parameters()) + \
+                           list(self.func_ally_comm.parameters()) + \
+                           list(self.action_representation.parameters())
 
-            # num_edge_type, feature_size, num_nodes, num_FastGTN_layers, hidden_size, num_channels, num_FastGT_layers)
-            self.func_meta_path = FastGTNs(num_edge_type=5,
-                             feature_size=feature_size,
-                             num_nodes=self.num_nodes,
-                             num_FastGTN_layers = 2,
-                             hidden_size = hidden_size_meta_path,
-                             num_channels = 2,
-                             num_layers = 2,
-                             teleport_probability=self.teleport_probability,
-                             gtn_beta = gtn_beta
-                             ).to(device)
-            self.node_representation = NodeEmbedding(feature_size=feature_size - 1, hidden_size=hidden_size_obs,
-                                                     n_representation_obs=n_representation_obs).to(device)  # 수정사항
-            self.eval_params = list(self.VDN.parameters()) + \
-                               list(self.Q.parameters()) + \
-                               list(self.func_meta_path.parameters()) + \
-                               list(self.node_representation.parameters()) + \
-                               list(self.action_representation.parameters())
         self.optimizer = optim.RMSprop(self.eval_params, lr=learning_rate)
 
 
@@ -325,74 +294,27 @@ class Agent:
 
 
     def get_node_representation(self, node_feature, edge_index_enemy, edge_index_ally, n_node_features, mini_batch = False):
-        if self.GNN == 'GAT':
-            if mini_batch == False:
-                with torch.no_grad():
-                    node_feature = torch.tensor(node_feature, dtype=torch.float,device=device)
-                    node_embedding_enemy_obs = self.node_representation_enemy_obs(node_feature)
-                    edge_index_enemy = torch.tensor(edge_index_enemy, dtype=torch.long, device=device)
-                    node_embedding = self.node_representation(node_feature[:, :-1])
-                    h_enemy_obs = self.func_enemy_obs(node_embedding_enemy_obs, edge_index_enemy, n_node_features, mini_batch = mini_batch)
-                    edge_index_ally = torch.tensor(edge_index_ally, dtype=torch.long, device=device)
-                    cat_feature = torch.concat([node_embedding, h_enemy_obs], dim=1)
-                    node_representation = self.func_ally_comm(cat_feature, edge_index_ally, n_node_features, mini_batch = mini_batch)
-                    print(node_representation.shape)
-            else:
+        if mini_batch == False:
+            with torch.no_grad():
                 node_feature = torch.tensor(node_feature, dtype=torch.float,device=device)
                 node_embedding_enemy_obs = self.node_representation_enemy_obs(node_feature)
+                edge_index_enemy = torch.tensor(edge_index_enemy, dtype=torch.long, device=device)
+                node_embedding = self.node_representation(node_feature[:, :-1])
                 h_enemy_obs = self.func_enemy_obs(node_embedding_enemy_obs, edge_index_enemy, n_node_features, mini_batch = mini_batch)
-                node_embedding = self.node_representation(node_feature[:,:, :-1])
-                cat_feature = torch.concat([node_embedding, h_enemy_obs], dim=2)
+                edge_index_ally = torch.tensor(edge_index_ally, dtype=torch.long, device=device)
+                cat_feature = torch.concat([node_embedding, h_enemy_obs], dim=1)
                 node_representation = self.func_ally_comm(cat_feature, edge_index_ally, n_node_features, mini_batch = mini_batch)
 
+        else:
+            node_feature = torch.tensor(node_feature, dtype=torch.float,device=device)
+            node_embedding_enemy_obs = self.node_representation_enemy_obs(node_feature)
+            h_enemy_obs = self.func_enemy_obs(node_embedding_enemy_obs, edge_index_enemy, n_node_features, mini_batch = mini_batch)
+            node_embedding = self.node_representation(node_feature[:,:, :-1])
+            cat_feature = torch.concat([node_embedding, h_enemy_obs], dim=2)
+            node_representation = self.func_ally_comm(cat_feature, edge_index_ally, n_node_features, mini_batch = mini_batch)
 
-            """
-            node_representation 
-            - training 시        : batch_size X num_nodes X feature_size 
-            - action sampling 시 : num_nodes X feature_size
-            """
-        if self.GNN == 'FastGTN':
-            if mini_batch == False:
-                with torch.no_grad():
-                    node_feature = torch.tensor(node_feature, dtype=torch.float,device=device)
-                    A = self.get_heterogeneous_adjacency_matrix(edge_index_enemy, edge_index_ally)
-                    node_representation = self.func_meta_path(A, node_feature, num_nodes = self.num_nodes, mini_batch = mini_batch)
-
-            else:
-                node_feature = torch.tensor(node_feature, dtype=torch.float, device=device)
-                A = [self.get_heterogeneous_adjacency_matrix(edge_index_enemy[m], edge_index_ally[m]) for m in range(self.batch_size)]
-                node_representation = self.func_meta_path(A, node_feature, num_nodes=self.num_nodes, mini_batch = mini_batch)
-                #node_representation = torch.stack(node_representation, dim = 0).to(device)
         return node_representation
 
-    def get_heterogeneous_adjacency_matrix(self, edge_index_enemy, edge_index_ally):
-        A = []
-        edge_index_enemy_transpose = deepcopy(edge_index_enemy)
-        edge_index_enemy_transpose[1] = edge_index_enemy[0]
-        edge_index_enemy_transpose[0] = edge_index_enemy[1]
-        edge_index_ally_transpose = deepcopy(edge_index_ally)
-        edge_index_ally_transpose[1] = edge_index_ally[0]
-        edge_index_ally_transpose[0] = edge_index_ally[1]
-        edges = [edge_index_enemy,
-                 edge_index_enemy_transpose,
-                 edge_index_ally,
-                 edge_index_ally_transpose]
-        for i, edge in enumerate(edges):
-            edge = torch.tensor(edge, dtype = torch.long, device = device)
-            value = torch.ones(edge.shape[1], dtype = torch.float, device = device)
-            
-
-            deg_inv_sqrt, deg_row, deg_col = _norm(edge.detach(),
-                                                   self.num_nodes,
-                                                   value.detach())  # row의 의미는 차원이 1이상인 node들의 index를 의미함
-
-            value = deg_inv_sqrt[deg_row] * value  # degree_matrix의 inverse 중에서 row에 해당되는(즉, node의 차원이 1이상인) node들만 골라서 value_tmp를 곱한다
-            A.append((edge, value))
-
-        edge = torch.stack((torch.arange(0, self.num_nodes), torch.arange(0, self.num_nodes))).type(torch.cuda.LongTensor)
-        value = torch.ones(self.num_nodes).type(torch.cuda.FloatTensor)
-        A.append((edge, value))
-        return A
 
 
 
@@ -408,10 +330,8 @@ class Agent:
         """
         if target == False:
           #  print("전", obs[:, agent_id].unsqueeze(1).shape)
-            if self.GNN == 'GAT':
-                obs_n = obs[:, agent_id].unsqueeze(1).expand([self.batch_size, self.action_size, self.n_representation_comm])
-            else:
-                obs_n = obs[:, agent_id].unsqueeze(1).expand([self.batch_size, self.action_size, self.hidden_size_meta_path])
+            obs_n = obs[:, agent_id].unsqueeze(1).expand([self.batch_size, self.action_size, self.n_representation_comm])
+
            # print("후", obs_n.shape)
             action_features = torch.tensor(action_features, device = device)
             action_embedding = self.action_representation(action_features)
@@ -427,11 +347,10 @@ class Agent:
             with torch.no_grad():
                 obs_next = obs
                 action_features_next = action_features
-                if self.GNN == 'GAT':
-                    obs_next = obs_next[:, agent_id].unsqueeze(1).expand(
-                        [self.batch_size, self.action_size, self.n_representation_comm])
-                else:
-                    obs_next = obs_next[:, agent_id].unsqueeze(1).expand([self.batch_size, self.action_size, self.hidden_size_meta_path])
+
+                obs_next = obs_next[:, agent_id].unsqueeze(1).expand(
+                    [self.batch_size, self.action_size, self.n_representation_comm])
+
                 action_features_next = torch.tensor(action_features_next, device = device)
                 action_embedding_next = self.action_representation(action_features_next)
                 obs_and_action_next = torch.concat([obs_next, action_embedding_next], dim=2)
@@ -447,7 +366,7 @@ class Agent:
 
 
     @torch.no_grad()
-    def sample_action(self, node_representation, action_feature, avail_action):
+    def sample_action(self, node_representation, action_feature, avail_action, epsilon):
         """
         node_representation 차원 : n_agents X n_representation_comm
         action_feature 차원      : action_size X n_action_feature
@@ -461,7 +380,7 @@ class Agent:
         action_embedding = self.action_representation(action_feature)
         for n in range(self.num_agent):
             obs = node_representation[n].expand(action_size, node_representation[n].shape[0])         # 차원 : action_size X n_representation_comm
-            obs_cat_action = torch.concat([obs, action_embedding], dim = 1)                           # 차원 : action_size X
+            obs_cat_action = torch.concat([obs, action_embedding], dim = 1)    # 차원 : action_size X
             obs_cat_action = obs_cat_action.float()
             Q = self.Q(obs_cat_action).squeeze(1)                                                # 차원 : action_size X 1
 
@@ -470,11 +389,15 @@ class Agent:
 
             mask_n = np.array(avail_action[n], dtype=np.float64)
 
-            u = greedy_u
-            action.append(u)
-
+            if np.random.uniform(0, 1) >= epsilon:
+                u = greedy_u
+                action.append(u)
+            else:
+                u = np.random.choice(self.action_space, p=mask_n / np.sum(mask_n))
+                action.append(u)
 
         return action
+
 
 
     def learn(self, regularizer):
@@ -493,10 +416,8 @@ class Agent:
                                             mini_batch=True)
         obs_next = self.get_node_representation(node_features_next, edge_indices_enemy_next, edge_indices_ally_next,
                                                  n_node_features, mini_batch=True)
-
         dones = torch.tensor(dones, device = device, dtype = torch.float)
         rewards = torch.tensor(rewards, device = device, dtype = torch.float)
-
         q = [self.cal_Q(obs=obs,
                          actions=actions,
                          action_features=action_features,
@@ -527,9 +448,6 @@ class Agent:
 
         torch.nn.utils.clip_grad_norm_(self.eval_params, 10)
         self.optimizer.step()
-        # if episode % 20 == 0 and episode > 0:
-        #     self.Q_tar.load_state_dict(self.Q.state_dict())
-        #     self.VDN_target.load_state_dict(self.VDN.state_dict())
         tau = 1e-3
         for target_param, local_param in zip(self.Q_tar.parameters(), self.Q.parameters()):
             target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)

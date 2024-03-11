@@ -20,23 +20,7 @@ map_name1 = '6h_vs_8z'
 GNN = 'FastGTN'
 heterogenous = False
 
-"""
-Protoss
-colossi : 200.0150.01.0
-stalkers : 80.080.00.625
-zealots : 100.050.00.5
 
-Terran
-medivacs  : 150.00.00.75
-marauders : 125.00.00.5625
-marines   : 45.00.00.375
-
-Zerg
-zergling : 35.00.00.375
-hydralisk : 80.00.00.625
-baneling : 30.00.00.375
-spine crawler : 300.00.01.125`
-"""
 
 def evaluation(env, agent, num_eval):
     max_episode_len = env.episode_limit

@@ -7,6 +7,7 @@ import numpy as np
 import sys
 import os
 import time
+from utils import *
 from cfg import get_cfg
 cfg = get_cfg()
 
@@ -34,7 +35,7 @@ else:
 
 regularizer = 0.0
 map_name1 = cfg.map_name
-
+GNN = cfg.GNN
 heterogenous = False
 
 """
@@ -81,29 +82,6 @@ def evaluation(env, agent, num_eval):
     print("map name : ", env.map_name, "승률", win_rates)
     return win_rates
 
-
-def get_agent_type_of_envs(envs):
-    agent_type_ids = list()
-    type_alliance = list()
-    for env in envs:
-        for agent_id, _ in env.agents.items():
-            agent = env.get_unit_by_id(agent_id)
-            agent_type_ids.append(str(agent.health_max)+str(agent.shield_max)+str(agent.radius))
-            type_alliance.append([str(agent.health_max)+str(agent.shield_max)+str(agent.radius), agent.alliance])
-        for e_id, e_unit in env.enemies.items():
-            enemy = list(env.enemies.items())[e_id][1]
-            agent_type_ids.append(str(enemy.health_max)+str(enemy.shield_max)+str(enemy.radius))
-            type_alliance.append([str(enemy.health_max)+str(enemy.shield_max)+str(enemy.radius), enemy.alliance])
-    agent_types_list = list(set(agent_type_ids))
-    type_alliance_set = list()
-    for x in type_alliance:
-        if x not in type_alliance_set:
-            type_alliance_set.append(x)
-    print(type_alliance_set)
-    for id in agent_types_list:
-        print("id : ", id, "count : " , agent_type_ids.count(id))
-
-    return len(agent_types_list), agent_types_list
 
 
 
