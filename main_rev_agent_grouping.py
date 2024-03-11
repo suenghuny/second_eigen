@@ -150,19 +150,19 @@ def main():
     env1.reset()
     num_unit_types, unit_type_ids = get_agent_type_of_envs([env1])
     env1.generate_num_unit_types(num_unit_types, unit_type_ids)
-    hidden_size_obs = int(os.environ.get("hidden_size_obs", 64))#cfg.hidden_size_obs       # GAT 해당(action 및 node representation의 hidden_size)
-    hidden_size_comm = int(os.environ.get("hidden_size_comm", 64))#cfg.hidden_size_comm
-    hidden_size_Q = int(os.environ.get("hidden_size_Q", 64)) #cfg.hidden_size_Q         # GAT 해당
+    hidden_size_obs = int(os.environ.get("hidden_size_obs", 32))#cfg.hidden_size_obs       # GAT 해당(action 및 node representation의 hidden_size)
+    hidden_size_comm = int(os.environ.get("hidden_size_comm", 56))#cfg.hidden_size_comm
+    hidden_size_Q = int(os.environ.get("hidden_size_Q",96)) #cfg.hidden_size_Q         # GAT 해당
     hidden_size_meta_path = 15#cfg.hidden_size_meta_path # GAT 해당
-    n_representation_obs = int(os.environ.get("n_representation_obs", 60))#cfg.n_representation_obs  # GAT 해당
-    n_representation_comm = int(os.environ.get("n_representation_comm", 72))#cfg.n_representation_comm
+    n_representation_obs = int(os.environ.get("n_representation_obs", 32))#cfg.n_representation_obs  # GAT 해당
+    n_representation_comm = int(os.environ.get("n_representation_comm", 64))#cfg.n_representation_comm
     buffer_size = int(os.environ.get("buffer_size", 150000))#cfg.buffer_size
     batch_size = int(os.environ.get("batch_size", 32))#cfg.batch_size
     gamma = 0.99 #cfg.gamma
-    learning_rate = float(os.environ.get("learning_rate", 3e-4))#cfg.lr
+    learning_rate = float(os.environ.get("learning_rate", 1.5e-4))#cfg.lr
     n_multi_head = 1#cfg.n_multi_head
     dropout = 0.6#cfg.dropout
-    num_episode = 20000#cfg.num_episode
+    num_episode = 100000#cfg.num_episode
     train_start = int(os.environ.get("train_start", 100))# cfg.train_start
     epsilon = float(os.environ.get("epsilon", 1.0))#cfg.epsilon
     min_epsilon = float(os.environ.get("min_epsilon", 0.05)) #cfg.min_epsilon
