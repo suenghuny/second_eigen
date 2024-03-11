@@ -159,7 +159,7 @@ def main():
     buffer_size = int(os.environ.get("buffer_size", 150000))#cfg.buffer_size
     batch_size = int(os.environ.get("batch_size", 32))#cfg.batch_size
     gamma = 0.99 #cfg.gamma
-    learning_rate = float(os.environ.get("learning_rate", 1.5e-4))#cfg.lr
+    learning_rate = float(os.environ.get("learning_rate", 5e-4))#cfg.lr
     n_multi_head = 1#cfg.n_multi_head
     dropout = 0.6#cfg.dropout
     num_episode = 140000#cfg.num_episode
