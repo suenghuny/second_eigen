@@ -194,7 +194,7 @@ def main():
     anneal_steps = int(os.environ.get("anneal_steps", 50000))#cfg.anneal_steps
 
     gamma1 = float(os.environ.get("gamma1", 0.001))
-    gamma2 = float(os.environ.get("gamma2", 3))
+    gamma2 = float(os.environ.get("gamma2", 6))
     anneal_epsilon = (epsilon - min_epsilon) / anneal_steps
     initializer = True
 
