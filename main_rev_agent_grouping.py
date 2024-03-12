@@ -193,7 +193,7 @@ def main():
     min_epsilon = float(os.environ.get("min_epsilon", 0.05)) #cfg.min_epsilon
     anneal_steps = int(os.environ.get("anneal_steps", 50000))#cfg.anneal_steps
 
-    gamma1 = float(os.environ.get("gamma1", 0.001))
+    gamma1 = float(os.environ.get("gamma1", 0.01))
     gamma2 = float(os.environ.get("gamma2", 5))
     anneal_epsilon = (epsilon - min_epsilon) / anneal_steps
     initializer = True
