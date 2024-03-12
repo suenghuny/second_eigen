@@ -187,7 +187,7 @@ def main():
     gamma = 0.99 #cfg.gamma
     learning_rate = float(os.environ.get("learning_rate", 5e-4))#cfg.lr
     learning_rate_graph = float(os.environ.get("learning_rate_graph", 1e-5))  # cfg.lr
-    num_episode = 140000#cfg.num_episode
+    num_episode = 140000 #cfg.num_episode
     train_start = int(os.environ.get("train_start", 10))# cfg.train_start
     epsilon = float(os.environ.get("epsilon", 1.0))#cfg.epsilon
     min_epsilon = float(os.environ.get("min_epsilon", 0.05)) #cfg.min_epsilon
