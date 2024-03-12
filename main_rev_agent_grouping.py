@@ -170,7 +170,7 @@ def main():
     num_unit_types, unit_type_ids = get_agent_type_of_envs([env])
     env.generate_num_unit_types(num_unit_types, unit_type_ids)
     hidden_size_obs = int(os.environ.get("hidden_size_obs", 32))#cfg.hidden_size_obs       # GAT 해당(action 및 node representation의 hidden_size)
-    hidden_size_comm = int(os.environ.get("hidden_size_comm", 56))#cfg.hidden_size_comm
+    hidden_size_comm = int(os.environ.get("hidden_size_comm", 48))#cfg.hidden_size_comm
     hidden_size_action = int(os.environ.get("hidden_size_action", 56))  # cfg.hidden_size_comm
     hidden_size_Q = int(os.environ.get("hidden_size_Q",96)) #cfg.hidden_size_Q         # GAT 해당
 
@@ -178,14 +178,14 @@ def main():
     n_representation_comm = int(os.environ.get("n_representation_comm", 64))#cfg.n_representation_comm
     n_representation_action = int(os.environ.get("n_representation_action", 64))  # cfg.n_representation_comm
 
-    graph_embedding = int(os.environ.get("graph_embedding", 84))
-    graph_embedding_comm = int(os.environ.get("graph_embedding_comm", 72))
+    graph_embedding = int(os.environ.get("graph_embedding", 72))
+    graph_embedding_comm = int(os.environ.get("graph_embedding_comm", 84))
 
 
     buffer_size = int(os.environ.get("buffer_size", 150000))#cfg.buffer_size
     batch_size = int(os.environ.get("batch_size", 32))#cfg.batch_size
     gamma = 0.99 #cfg.gamma
-    learning_rate = float(os.environ.get("learning_rate", 1.5e-4))#cfg.lr
+    learning_rate = float(os.environ.get("learning_rate", 1.2e-4))#cfg.lr
     learning_rate_graph = float(os.environ.get("learning_rate_graph", 1e-5))  # cfg.lr
     num_episode = 140000 #cfg.num_episode
     train_start = int(os.environ.get("train_start", 10))# cfg.train_start
@@ -194,7 +194,7 @@ def main():
     anneal_steps = int(os.environ.get("anneal_steps", 50000))#cfg.anneal_steps
 
     gamma1 = float(os.environ.get("gamma1", 0.001))
-    gamma2 = float(os.environ.get("gamma2", 6))
+    gamma2 = float(os.environ.get("gamma2", 5))
     anneal_epsilon = (epsilon - min_epsilon) / anneal_steps
     initializer = True
 
