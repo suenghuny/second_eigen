@@ -30,8 +30,8 @@ def get_graph_loss(X, A, num_nodes):
         D[i] = torch.diag(A[i].sum(1))
 
     L = D-A
-    sec_eig = np.mean([np.linalg.eigh(L[G, :, :].detach().cpu().numpy())[0][1] for G in range(L.shape[0])])
-
+    # sec_eig = np.mean([np.linalg.eigh(L[G, :, :].detach().cpu().numpy())[0][1] for G in range(L.shape[0])])
+    # print(sec_eig)
 
     lap_quad = laplacian_quadratic.mean()
     sec_eig_upperbound = (num_nodes / (num_nodes - 1)) ** 2 * (frobenius_norm - num_nodes ** 2 * var).mean()

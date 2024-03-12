@@ -112,6 +112,7 @@ class GLCN(nn.Module):
             A = F.sigmoid(h).squeeze(2)
             D = torch.diag(torch.diag(A))
             A = A-D
+            #print(A)
 
         return A
 
