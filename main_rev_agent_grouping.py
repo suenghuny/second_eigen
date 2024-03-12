@@ -50,7 +50,7 @@ Zerg
 zergling : 35.00.00.375
 hydralisk : 80.00.00.625
 baneling : 30.00.00.375
-spine crawler : 300.00.01.125`
+spine crawler : 300.00.01.125` 
 """
 
 def evaluation(env, agent, num_eval):
@@ -185,7 +185,7 @@ def main():
     buffer_size = int(os.environ.get("buffer_size", 150000))#cfg.buffer_size
     batch_size = int(os.environ.get("batch_size", 32))#cfg.batch_size
     gamma = 0.99 #cfg.gamma
-    learning_rate = float(os.environ.get("learning_rate", 5e-4))#cfg.lr
+    learning_rate = float(os.environ.get("learning_rate", 1.5e-4))#cfg.lr
     learning_rate_graph = float(os.environ.get("learning_rate_graph", 1e-5))  # cfg.lr
     num_episode = 140000 #cfg.num_episode
     train_start = int(os.environ.get("train_start", 10))# cfg.train_start
