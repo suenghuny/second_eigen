@@ -1,6 +1,6 @@
 
 
-
+from utils import *
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -10,6 +10,9 @@ from collections import deque
 from torch.distributions import Categorical
 import numpy as np
 
+from GLCN.GLCN import GLCN
+from cfg import get_cfg
+cfg = get_cfg()
 from GAT.model import GAT
 from GAT.layers import device
 from copy import deepcopy
@@ -68,7 +71,7 @@ class NodeEmbedding(nn.Module):
         return node_representation
 
 class Replay_Buffer:
-    def __init__(self, buffer_size, batch_size, num_agent, action_size):
+    def __init__(self, buffer_size, batch_size, num_agent):
         self.buffer = deque()
 
 
@@ -78,7 +81,6 @@ class Replay_Buffer:
         self.buffer_size = buffer_size
         self.num_agent = num_agent
         self.agent_id = np.eye(self.num_agent).tolist()
-        self.one_hot_actions = np.eye(action_size).tolist()
         self.batch_size = batch_size
         self.step_count = 0
 
@@ -170,13 +172,8 @@ class Replay_Buffer:
 
         edge_index_ally_next = self.generating_mini_batch(self.buffer, sampled_batch_idx, cat='edge_index_ally_next')
         edge_indices_ally_next = list(edge_index_ally_next)
-
-
-
         avail_action_next = self.generating_mini_batch(self.buffer, sampled_batch_idx, cat='avail_action_next')
         avail_actions_next = list(avail_action_next)
-
-
         return node_features, actions, action_features, edge_indices_enemy, edge_indices_ally, rewards, dones, node_features_next, action_features_next, edge_indices_enemy_next, edge_indices_ally_next, avail_actions_next
 
 class Agent:
@@ -187,96 +184,114 @@ class Agent:
 
                  hidden_size_obs,
                  hidden_size_comm,
+                 hidden_size_action,
                  hidden_size_Q,
-                 hidden_size_meta_path,
-                 n_multi_head,
+
                  n_representation_obs,
                  n_representation_comm,
+                 n_representation_action,
 
-                 max_episode_len,
-                 dropout,
-                 action_size,
+                 graph_embedding,
+                 graph_embedding_comm,
+
                  buffer_size,
                  batch_size,
                  learning_rate,
+                 learning_rate_graph,
                  gamma,
-                 teleport_probability,
-                 gtn_beta):
+                 gamma1,
+                 gamma2
+                 ):
         torch.manual_seed(81)
         random.seed(81)
         np.random.seed(81)
+
         self.num_agent = num_agent
         self.num_enemy = num_enemy
         self.feature_size = feature_size
-        self.hidden_size_meta_path = hidden_size_meta_path
         self.hidden_size_obs = hidden_size_obs
         self.hidden_size_comm = hidden_size_comm
-        self.n_multi_head = n_multi_head
-        self.teleport_probability = teleport_probability
+        self.hidden_size_action = hidden_size_action
+
 
         self.n_representation_obs = n_representation_obs
         self.n_representation_comm = n_representation_comm
-        self.max_episode_len = max_episode_len
+        self.n_representation_action = n_representation_action
 
-        self.action_size = action_size
+        self.graph_embedding = graph_embedding
+        self.graph_embedding_comm = graph_embedding_comm
 
-        self.dropout = dropout
+        self.gamma1 = gamma1
+        self.gamma2 = gamma2
+
+
         self.gamma = gamma
         self.agent_id = np.eye(self.num_agent).tolist()
 
         self.max_norm = 10
+
         self.VDN = VDN().to(device)
         self.VDN_target = VDN().to(device)
-
 
 
         self.VDN_target.load_state_dict(self.VDN.state_dict())
         self.buffer_size = buffer_size
         self.batch_size = batch_size
-        self.buffer = Replay_Buffer(self.buffer_size, self.batch_size, self.num_agent, self.action_size)
+        self.buffer = Replay_Buffer(self.buffer_size, self.batch_size, self.num_agent)
 
 
 
-        self.action_space = [i for i in range(self.action_size)]
 
 
 
-        self.num_nodes = self.num_agent+self.num_enemy
-        self.Q = Network(n_representation_comm + n_representation_obs, hidden_size_Q).to(device)
-        self.Q_tar = Network(n_representation_comm + n_representation_obs, hidden_size_Q).to(device)
+
+        # self.node_representation_enemy_obs = NodeEmbedding(feature_size=feature_size,
+        #                                                    hidden_size=hidden_size_obs,
+        #                                                    n_representation_obs=n_representation_obs).to(device)  # 수정사항
+        # self.node_representation = NodeEmbedding(feature_size=feature_size - 1,
+        #                                          hidden_size=hidden_size_obs,
+        #                                          n_representation_obs=n_representation_obs).to(device)  # 수정사항
+        # self.action_representation = NodeEmbedding(feature_size=feature_size + 5,
+        #                                            hidden_size=hidden_size_obs,
+        #                                            n_representation_obs=n_representation_obs).to(device)  # 수정사항
+
+
+        self.node_representation = NodeEmbedding(feature_size=self.feature_size,
+                                                   hidden_size=self.hidden_size_obs,
+                                                   n_representation_obs=self.n_representation_obs).to(device)  # 수정사항
+        self.node_representation_comm = NodeEmbedding(feature_size =self.feature_size-1,
+                                                      hidden_size  =self.hidden_size_comm,
+                                                      n_representation_obs=self.n_representation_comm).to(device)  # 수정사항
+        self.action_representation = NodeEmbedding(feature_size=self.feature_size + 5,
+                                                   hidden_size=self.hidden_size_action,
+                                                   n_representation_obs=self.n_representation_action).to(device)  # 수정사항
+
+
+        self.func_obs = GLCN(feature_size=self.n_representation_obs, graph_embedding_size=self.graph_embedding, link_prediction = False).to(device)
+        if cfg.given_edge == True:
+            self.func_glcn = GLCN(feature_size=self.graph_embedding+self.n_representation_comm,
+                                  graph_embedding_size=self.graph_embedding_comm, link_prediction = False).to(device)
+        else:
+            self.func_glcn = GLCN(feature_size=self.graph_embedding+self.n_representation_comm,
+                                  feature_obs_size=self.graph_embedding,
+                                  graph_embedding_size=self.graph_embedding_comm, link_prediction = True).to(device)
+
+
+        self.Q = Network(self.graph_embedding_comm + self.n_representation_action, hidden_size_Q).to(device)
+        self.Q_tar = Network(self.graph_embedding_comm + self.n_representation_action, hidden_size_Q).to(device)
         self.Q_tar.load_state_dict(self.Q.state_dict())
-        self.node_representation_enemy_obs = NodeEmbedding(feature_size=feature_size, hidden_size=hidden_size_obs,
-                                                           n_representation_obs=n_representation_obs).to(
-            device)  # 수정사항
-        self.node_representation = NodeEmbedding(feature_size=feature_size - 1, hidden_size=hidden_size_obs,
-                                                 n_representation_obs=n_representation_obs).to(device)  # 수정사항
-        self.action_representation = NodeEmbedding(feature_size=feature_size + 6 - 1, hidden_size=hidden_size_obs,
-                                                   n_representation_obs=n_representation_obs).to(device)  # 수정사항
-        self.func_enemy_obs = GAT(nfeat = n_representation_obs,
-                                  nhid = hidden_size_obs,
-                                  nheads = n_multi_head,
-                                  nclass = n_representation_obs,
-                                  dropout = dropout,
-                                  alpha = 0.2,
-                                  mode = 'observation',
-                                  teleport_probability = self.teleport_probability).to(device)
-        self.func_ally_comm = GAT(nfeat = 2 * n_representation_obs,
-                                  nhid = hidden_size_comm,
-                                  nheads = n_multi_head,
-                                  nclass = n_representation_comm,
-                                  dropout = dropout,
-                                  alpha = 0.2,
-                                  mode = 'communication',
-                                  teleport_probability = self.teleport_probability).to(device)   # 수정사항
+
+
         self.eval_params = list(self.VDN.parameters()) + \
                            list(self.Q.parameters()) + \
-                           list(self.node_representation_enemy_obs.parameters()) + \
-                           list(self.func_enemy_obs.parameters()) + \
                            list(self.node_representation.parameters()) + \
-                           list(self.func_ally_comm.parameters()) + \
+                           list(self.node_representation_comm.parameters()) + \
+                           list(self.func_obs.parameters()) + \
+                           list(self.func_glcn.parameters()) + \
                            list(self.action_representation.parameters())
 
         self.optimizer = optim.RMSprop(self.eval_params, lr=learning_rate)
+        self.optimizer_graph = optim.RMSprop(self.eval_params, lr=learning_rate_graph)
 
 
 
@@ -293,29 +308,42 @@ class Agent:
         self = torch.load(path)
 
 
-    def get_node_representation(self, node_feature, edge_index_enemy, edge_index_ally, n_node_features, mini_batch = False):
+    def get_node_representation_temp(self, node_feature, edge_index_obs,edge_index_comm, mini_batch = False):
         if mini_batch == False:
             with torch.no_grad():
                 node_feature = torch.tensor(node_feature, dtype=torch.float,device=device)
-                node_embedding_enemy_obs = self.node_representation_enemy_obs(node_feature)
-                edge_index_enemy = torch.tensor(edge_index_enemy, dtype=torch.long, device=device)
-                node_embedding = self.node_representation(node_feature[:, :-1])
-                h_enemy_obs = self.func_enemy_obs(node_embedding_enemy_obs, edge_index_enemy, n_node_features, mini_batch = mini_batch)
-                edge_index_ally = torch.tensor(edge_index_ally, dtype=torch.long, device=device)
-                cat_feature = torch.concat([node_embedding, h_enemy_obs], dim=1)
-                node_representation = self.func_ally_comm(cat_feature, edge_index_ally, n_node_features, mini_batch = mini_batch)
 
+                node_embedding_obs  = self.node_representation(node_feature)
+                node_embedding_comm = self.node_representation_comm(node_feature[:, :-1])
+
+                edge_index_obs  = torch.tensor(edge_index_obs, dtype=torch.long, device=device)
+                edge_index_comm = torch.tensor(edge_index_comm, dtype=torch.long, device=device)
+
+                node_embedding_obs = self.func_obs(X = node_embedding_obs, A = edge_index_obs)
+                cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim = 1)
+
+                if cfg.given_edge == True:
+                    node_embedding = self.func_glcn(X=cat_embedding, A=edge_index_comm)
+                    return node_embedding
+
+                else:
+                    node_embedding, A, X = self.func_glcn(X = cat_embedding, A = None)
+                    return node_embedding, A, X
         else:
-            node_feature = torch.tensor(node_feature, dtype=torch.float,device=device)
-            node_embedding_enemy_obs = self.node_representation_enemy_obs(node_feature)
-            h_enemy_obs = self.func_enemy_obs(node_embedding_enemy_obs, edge_index_enemy, n_node_features, mini_batch = mini_batch)
-            node_embedding = self.node_representation(node_feature[:,:, :-1])
-            cat_feature = torch.concat([node_embedding, h_enemy_obs], dim=2)
-            node_representation = self.func_ally_comm(cat_feature, edge_index_ally, n_node_features, mini_batch = mini_batch)
+            node_feature = torch.tensor(node_feature, dtype=torch.float, device=device)
 
-        return node_representation
+            node_embedding_obs  = self.node_representation(node_feature)
+            node_embedding_comm = self.node_representation_comm(node_feature[:, :, :-1])
 
+            node_embedding_obs = self.func_obs(X = node_embedding_obs, A = edge_index_obs, mini_batch = mini_batch)
+            cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim=2)
 
+            if cfg.given_edge == True:
+                node_embedding = self.func_glcn(X=cat_embedding, A=edge_index_comm, mini_batch=mini_batch)
+                return node_embedding
+            else:
+                node_embedding, A, X, D = self.func_glcn(X = cat_embedding, A = None, mini_batch = mini_batch)
+                return node_embedding, A, X, D
 
 
 
@@ -329,11 +357,9 @@ class Agent:
 
         """
         if target == False:
-          #  print("전", obs[:, agent_id].unsqueeze(1).shape)
-            obs_n = obs[:, agent_id].unsqueeze(1).expand([self.batch_size, self.action_size, self.n_representation_comm])
-
-           # print("후", obs_n.shape)
-            action_features = torch.tensor(action_features, device = device)
+            action_features = torch.tensor(action_features, device=device)
+            action_size = action_features.shape[1]
+            obs_n = obs[:, agent_id].unsqueeze(1).expand([self.batch_size, action_size, self.graph_embedding_comm])
             action_embedding = self.action_representation(action_features)
             obs_and_action = torch.concat([obs_n, action_embedding], dim=2)
             obs_and_action = obs_and_action.float()
@@ -347,12 +373,11 @@ class Agent:
             with torch.no_grad():
                 obs_next = obs
                 action_features_next = action_features
-
-                obs_next = obs_next[:, agent_id].unsqueeze(1).expand(
-                    [self.batch_size, self.action_size, self.n_representation_comm])
-
-                action_features_next = torch.tensor(action_features_next, device = device)
+                action_features_next = torch.tensor(action_features_next, device=device)
+                action_size = action_features_next.shape[1]
+                obs_next = obs_next[:, agent_id].unsqueeze(1).expand([self.batch_size, action_size, self.graph_embedding_comm])
                 action_embedding_next = self.action_representation(action_features_next)
+
                 obs_and_action_next = torch.concat([obs_next, action_embedding_next], dim=2)
                 obs_and_action_next = obs_and_action_next.float()
                 q_tar = self.Q_tar(obs_and_action_next)                        # q.shape :      (batch_size, action_size, 1)
@@ -378,7 +403,9 @@ class Agent:
         action_size = action_feature.shape[0]
         action = []
         action_embedding = self.action_representation(action_feature)
+        action_space = [i for i in range(action_size)]
         for n in range(self.num_agent):
+            #print(node_representation.shape)
             obs = node_representation[n].expand(action_size, node_representation[n].shape[0])         # 차원 : action_size X n_representation_comm
             obs_cat_action = torch.concat([obs, action_embedding], dim = 1)    # 차원 : action_size X
             obs_cat_action = obs_cat_action.float()
@@ -393,7 +420,7 @@ class Agent:
                 u = greedy_u
                 action.append(u)
             else:
-                u = np.random.choice(self.action_space, p=mask_n / np.sum(mask_n))
+                u = np.random.choice(action_space, p=mask_n / np.sum(mask_n))
                 action.append(u)
 
         return action
@@ -411,11 +438,23 @@ class Agent:
         """
         # print(torch.tensor(action_features).shape)
         # print(torch.tensor(avail_actions_next).shape)
-        n_node_features = torch.tensor(node_features).shape[1]
-        obs = self.get_node_representation(node_features, edge_indices_enemy, edge_indices_ally, n_node_features,
-                                            mini_batch=True)
-        obs_next = self.get_node_representation(node_features_next, edge_indices_enemy_next, edge_indices_ally_next,
-                                                 n_node_features, mini_batch=True)
+        num_nodes = torch.tensor(node_features).shape[1]
+
+        if cfg.given_edge == True:
+            obs = self.get_node_representation_temp(node_features, edge_indices_enemy, edge_indices_ally,
+                                                    mini_batch=True)
+            obs_next = self.get_node_representation_temp(node_features_next, edge_indices_enemy_next, edge_indices_ally_next,mini_batch=True)
+        else:
+            obs, A, X, D = self.get_node_representation_temp(node_features, edge_indices_enemy, edge_indices_ally,
+                                                    mini_batch=True)
+            obs_next, _, _, _ = self.get_node_representation_temp(node_features_next, edge_indices_enemy_next, edge_indices_ally_next, mini_batch=True)
+
+            gamma1 = self.gamma1
+            gamma2 = self.gamma2
+            lap_quad, sec_eig_upperbound = get_graph_loss(X, A, num_nodes)
+
+
+
         dones = torch.tensor(dones, device = device, dtype = torch.float)
         rewards = torch.tensor(rewards, device = device, dtype = torch.float)
         q = [self.cal_Q(obs=obs,
@@ -439,20 +478,29 @@ class Agent:
         q_tot_tar = self.VDN_target(q_tot_tar)
 
         td_target = rewards*self.num_agent + self.gamma* (1-dones)*q_tot_tar
-        loss1 = F.mse_loss(q_tot, td_target.detach())
 
-        loss = loss1 #+ regularizer * loss2
+        if cfg.given_edge == True:
+            loss = F.mse_loss(q_tot, td_target.detach()) #+ gamma1* lap_quad - gamma2 * gamma1 * sec_eig_upperbound
+        else:
+
+            loss = F.mse_loss(q_tot, td_target.detach())
+            graph_loss = gamma1* lap_quad - gamma2 * gamma1 * sec_eig_upperbound
+
 
         self.optimizer.zero_grad()
-        loss.backward()
-
+        loss.backward(retain_graph = True)
+        graph_loss.backward()
         torch.nn.utils.clip_grad_norm_(self.eval_params, 10)
         self.optimizer.step()
+        self.optimizer_graph.step()
         tau = 1e-3
         for target_param, local_param in zip(self.Q_tar.parameters(), self.Q.parameters()):
             target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
         for target_param, local_param in zip(self.VDN_target.parameters(), self.VDN.parameters()):
             target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
+        if cfg.given_edge == True:
+            return loss
+        else:
+            return loss, lap_quad.tolist(), sec_eig_upperbound.tolist()
 
-        return loss
 

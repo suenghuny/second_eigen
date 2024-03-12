@@ -71,9 +71,10 @@ class LinkPrediction(nn.Module):
         return node_representation
 
 class GLCN(nn.Module):
-    def __init__(self, feature_size, graph_embedding_size, link_prediction = True, k_hop = 1):
+    def __init__(self, feature_size, graph_embedding_size, link_prediction = True, feature_obs_size = None):
         super(GLCN, self).__init__()
         self.graph_embedding_size = graph_embedding_size
+
         self.Ws = nn.Parameter(torch.Tensor(feature_size, graph_embedding_size))
         glorot(self.Ws)
 
@@ -86,7 +87,8 @@ class GLCN(nn.Module):
         nn.init.xavier_uniform_(self.a.data, gain=1.414)
         self.link_prediction = link_prediction
         if self.link_prediction == True:
-            self.a_link = nn.Parameter(torch.empty(size=(feature_size, 1)))
+            self.feature_obs_size = feature_obs_size
+            self.a_link = nn.Parameter(torch.empty(size=(self.feature_obs_size, 1)))
             nn.init.xavier_uniform_(self.a_link.data, gain=1.414)
             self.k_hop = int(os.environ.get("k_hop",3))
             self.W = [nn.Parameter(torch.Tensor(size=(feature_size, graph_embedding_size))) if k == 0 else nn.Parameter(torch.Tensor(size=(graph_embedding_size, graph_embedding_size)))
@@ -96,17 +98,21 @@ class GLCN(nn.Module):
 
 
 
+
     def _link_prediction(self, h, mini_batch = False):
-        # A = torch.ones(h.shape[0], h.shape[0]).to(device)
-        # A = A -torch.eye(A.size(0)).to(device)
         if cfg.softmax == True:
+
             h = torch.einsum("ijk,kl->ijl", torch.abs(h.unsqueeze(1) - h.unsqueeze(0)), self.a_link)
             h = h.squeeze(2)
             A = F.softmax(h, dim = 1)
-            A = (A+A.transpose())/2
+            A = (A+A.T)/2
         else:
+            h = h[:, :self.feature_obs_size]
             h = torch.einsum("ijk,kl->ijl", torch.abs(h.unsqueeze(1) - h.unsqueeze(0)), self.a_link)
-            A = F.hardsigmoid(h).squeeze(2)
+            A = F.sigmoid(h).squeeze(2)
+            D = torch.diag(torch.diag(A))
+            A = A-D
+
         return A
 
 
@@ -200,11 +206,12 @@ class GLCN(nn.Module):
                         if k == 0:
                             support = torch.mm(X[b], self.W[k])
                             output = torch.mm(torch.mm(D_hat_inv_sqrt, A_hat), D_hat_inv_sqrt)
+                            H = torch.mm(output, support)
                         else:
                             support = torch.mm(H, self.W[k])
                             output = torch.mm(torch.mm(D_hat_inv_sqrt, A_hat), D_hat_inv_sqrt)
 
-                        H = torch.mm(output, support)
+                            H = torch.mm(output.detach(), support)
                         if k+1 == self.k_hop:
                             H_placeholder.append(H)
                 H = torch.stack(H_placeholder)

@@ -32,7 +32,7 @@ def get_cfg():
     parser.add_argument("--gamma1", type=float, default=1.0, help="")
     parser.add_argument("--softmax", type=bool, default=False, help="")
     parser.add_argument("--sweep", type=bool, default=True, help="")
-    parser.add_argument("--given_edge", type=bool, default=True, help="")
+    parser.add_argument("--given_edge", type=bool, default=False, help="")
 
     parser.add_argument("--num_episode", type=int, default=1000000, help="number of episode")
     # "hidden_size_obs": cfg.hidden_size_obs,

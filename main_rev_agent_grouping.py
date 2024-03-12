@@ -26,10 +26,9 @@ if sys.platform == "linux":
     REGISTRY = {}
     REGISTRY["sc2"] = partial(env_fn, env=StarCraft2Env)
     os.environ.setdefault("SC2PATH",os.path.join(os.getcwd(), "3rdparty", "StarCraftII"))
-    env1 = REGISTRY["sc2"](map_name=cfg.map_name, seed=123, step_mul=8, replay_dir="Replays", )
+    env = REGISTRY["sc2"](map_name=cfg.map_name, seed=123, step_mul=8, replay_dir="Replays", )
 else:
-    env1 = StarCraft2Env(map_name = cfg.map_name)
-
+    env = StarCraft2Env(map_name = cfg.map_name)
 
 
 regularizer = 0.0
@@ -67,18 +66,27 @@ def evaluation(env, agent, num_eval):
             step += 1
 
             node_feature, edge_index_enemy, edge_index_ally, n_node_features = env.get_heterogeneous_graph(heterogeneous = heterogenous)
-
-            node_representation = agent.get_node_representation(node_feature, edge_index_enemy, edge_index_ally,
-                                                                n_node_features,
-                                                                mini_batch=False)  # 차원 : n_agents X n_representation_comm
+            if cfg.given_edge == True:
+                node_representation = agent.get_node_representation_temp(
+                                                                     node_feature,
+                                                                     edge_index_enemy,
+                                                                     edge_index_ally,
+                                                                     mini_batch=False)  # 차원 : n_agents X n_representation_comm
+            else:
+                node_representation, A, X = agent.get_node_representation_temp(
+                                                                     node_feature,
+                                                                     edge_index_enemy,
+                                                                     edge_index_ally,
+                                                                     mini_batch=False)
+            #print(cfg.given_edge, node_representation)
             avail_action = env.get_avail_actions()
             action_feature = env.get_action_feature()  # 차원 : action_size X n_action_feature
-
             action = agent.sample_action(node_representation, action_feature, avail_action, epsilon=0)
             reward, done, info = env.step(action)
             win_tag = True if done and 'battle_won' in info and info['battle_won'] else False
             episode_reward += reward
             t += 1
+
         print("map name {} : Evaluation episode {}, episode reward {}, win_tag {}".format(env.map_name, e, episode_reward, win_tag))
         if win_tag == True:
             win_rates += 1 / num_eval
@@ -99,6 +107,8 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
     epi_r = list()
     eval = False
     start = time.time()
+    laplacian_quadratic_list = list()
+    sec_eig_upperbound_list = list()
     while (not done) and (step < max_episode_limit):
         """
         Note: edge index 추출에 세가지 방법
@@ -107,11 +117,18 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
         """
         node_feature, edge_index_enemy, edge_index_ally, n_node_features = env.get_heterogeneous_graph(heterogeneous=heterogenous)
 
-        node_representation = agent.get_node_representation(node_feature,
-                                                            edge_index_enemy,
-                                                            edge_index_ally,
-                                                            n_node_features,
-                                                            mini_batch=False)  # 차원 : n_agents X n_representation_comm
+        if cfg.given_edge == True:
+            node_representation = agent.get_node_representation_temp(
+                node_feature,
+                edge_index_enemy,
+                edge_index_ally,
+                mini_batch=False)  # 차원 : n_agents X n_representation_comm
+        else:
+            node_representation, A, X = agent.get_node_representation_temp(
+                node_feature,
+                edge_index_enemy,
+                edge_index_ally,
+                mini_batch=False)
         avail_action = env.get_avail_actions()
         action_feature = env.get_action_feature()  # 차원 : action_size X n_action_feature
         action = agent.sample_action(node_representation, action_feature, avail_action, epsilon)
@@ -126,7 +143,12 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
             eval = True
 
         if e >= train_start:
-            loss = agent.learn(regularizer)
+            if cfg.given_edge == True:
+                loss = agent.learn(regularizer)
+            else:
+                loss, laplacian_quadratic, sec_eig_upperbound = agent.learn(regularizer)
+                laplacian_quadratic_list.append(laplacian_quadratic)
+                sec_eig_upperbound_list.append(sec_eig_upperbound)
             losses.append(loss.detach().item())
         if epsilon >= min_epsilon:
             epsilon = epsilon - anneal_epsilon
@@ -134,74 +156,90 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
             epsilon = min_epsilon
 
 
-    if e >= train_start:
-
-        print("{} Total reward in episode {} = {}, epsilon : {}, time_step : {}, episode_duration : {}".format(env.map_name,
-                                                                                                e,
-                                                                                                np.round(episode_reward, 3),
-                                                                                                np.round(epsilon, 3),
-                                                                                                t, np.round(time.time()-start, 3)))
+    print("{} Total reward in episode {} = {}, epsilon : {}, time_step : {}, episode_duration : {}".format(env.map_name,e,np.round(episode_reward, 3),np.round(epsilon, 3),t, np.round(time.time()-start, 3)))
+    if cfg.given_edge == True:
+        return episode_reward,epsilon, t, eval
+    else:
+        return episode_reward, epsilon, t, eval, np.mean(laplacian_quadratic_list), np.mean(sec_eig_upperbound_list)
 
 
-    return episode_reward, epsilon, t, eval
+
 
 def main():
-    #env1 = REGISTRY["sc2"](map_name=map_name1, seed=123, step_mul=8, replay_dir="Replays", )
-    env1.reset()
-    num_unit_types, unit_type_ids = get_agent_type_of_envs([env1])
-    env1.generate_num_unit_types(num_unit_types, unit_type_ids)
+    env.reset()
+    num_unit_types, unit_type_ids = get_agent_type_of_envs([env])
+    env.generate_num_unit_types(num_unit_types, unit_type_ids)
     hidden_size_obs = int(os.environ.get("hidden_size_obs", 32))#cfg.hidden_size_obs       # GAT 해당(action 및 node representation의 hidden_size)
     hidden_size_comm = int(os.environ.get("hidden_size_comm", 56))#cfg.hidden_size_comm
+    hidden_size_action = int(os.environ.get("hidden_size_action", 56))  # cfg.hidden_size_comm
     hidden_size_Q = int(os.environ.get("hidden_size_Q",96)) #cfg.hidden_size_Q         # GAT 해당
-    hidden_size_meta_path = 15#cfg.hidden_size_meta_path # GAT 해당
+
     n_representation_obs = int(os.environ.get("n_representation_obs", 32))#cfg.n_representation_obs  # GAT 해당
     n_representation_comm = int(os.environ.get("n_representation_comm", 64))#cfg.n_representation_comm
+    n_representation_action = int(os.environ.get("n_representation_action", 64))  # cfg.n_representation_comm
+
+    graph_embedding = int(os.environ.get("graph_embedding", 84))
+    graph_embedding_comm = int(os.environ.get("graph_embedding_comm", 72))
+
+
     buffer_size = int(os.environ.get("buffer_size", 150000))#cfg.buffer_size
     batch_size = int(os.environ.get("batch_size", 32))#cfg.batch_size
     gamma = 0.99 #cfg.gamma
     learning_rate = float(os.environ.get("learning_rate", 5e-4))#cfg.lr
-    n_multi_head = 1#cfg.n_multi_head
-    dropout = 0.6#cfg.dropout
+    learning_rate_graph = float(os.environ.get("learning_rate_graph", 1e-5))  # cfg.lr
     num_episode = 140000#cfg.num_episode
-    train_start = int(os.environ.get("train_start", 100))# cfg.train_start
+    train_start = int(os.environ.get("train_start", 10))# cfg.train_start
     epsilon = float(os.environ.get("epsilon", 1.0))#cfg.epsilon
     min_epsilon = float(os.environ.get("min_epsilon", 0.05)) #cfg.min_epsilon
     anneal_steps = int(os.environ.get("anneal_steps", 50000))#cfg.anneal_steps
+
+    gamma1 = float(os.environ.get("gamma1", 0.001))
+    gamma2 = float(os.environ.get("gamma2", 5))
     anneal_epsilon = (epsilon - min_epsilon) / anneal_steps
     initializer = True
-    agent1 = Agent(num_agent=env1.get_env_info()["n_agents"],
-                   num_enemy=env1.get_env_info()["n_enemies"],
-                   feature_size=env1.get_env_info()["node_features"],
-                   hidden_size_meta_path = hidden_size_meta_path,
-                   hidden_size_obs=hidden_size_obs,
-                   hidden_size_comm=hidden_size_comm,
-                   hidden_size_Q=hidden_size_Q,
-                   n_multi_head=n_multi_head,
-                   n_representation_obs=n_representation_obs,
-                   n_representation_comm=n_representation_comm,
-                   dropout=dropout,
-                   action_size=env1.get_env_info()["n_actions"],
-                   buffer_size=buffer_size,
-                   batch_size=batch_size,
-                   gtn_beta = 0.3,
-                   max_episode_len=env1.episode_limit,
-                   learning_rate=learning_rate,
-                   teleport_probability = 0.1,
-                   gamma=gamma)
+
+
+    agent = Agent(num_agent=env.get_env_info()["n_agents"],
+                   num_enemy=env.get_env_info()["n_enemies"],
+                   feature_size=env.get_env_info()["node_features"],
+
+                   hidden_size_obs = hidden_size_obs,
+                   hidden_size_comm = hidden_size_comm,
+                   hidden_size_action =hidden_size_action,
+                   hidden_size_Q = hidden_size_Q,
+
+                   n_representation_obs = n_representation_obs,
+                   n_representation_comm = n_representation_comm,
+                   n_representation_action = n_representation_action,
+
+                   graph_embedding = graph_embedding,
+                   graph_embedding_comm = graph_embedding_comm,
+
+                   buffer_size = buffer_size,
+                   batch_size = batch_size,
+                   learning_rate = learning_rate,
+                   learning_rate_graph = learning_rate_graph,
+                   gamma = gamma,
+                   gamma1 = gamma1,
+                   gamma2 = gamma2)
 
 
     t = 0
     epi_r = []
     win_rates = []
     for e in range(num_episode):
-        episode_reward, epsilon, t, eval = train(agent1, env1, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer)
+        if cfg.given_edge == True:
+            episode_reward, epsilon, t, eval = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer)
+        else:
+            episode_reward, epsilon, t, eval,laplacian_quadratic, second_eig_upperbound = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer)
+            print(second_eig_upperbound)
         initializer = False
         epi_r.append(episode_reward)
         if t % 500000 == 0:
             if vessl_on == True:
-                agent1.save_model("\output\map_name_{}__{}_lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.pt".format(map_name1,  learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
+                agent.save_model("\output\map_name_{}_lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.pt".format(map_name1,  learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
             else:
-                agent1.save_model("\output\map_name_{}__lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.pt".format(map_name1, learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
+                agent.save_model("\output\map_name_{}__lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.pt".format(map_name1, learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
         if e % 10 == 1:
             if vessl_on == True:
                 vessl.log(step = e, payload = {'reward' : np.mean(epi_r)})
@@ -213,7 +251,7 @@ def main():
                 r_df.to_csv("cumulative_reward_map_name_{}__lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.csv".format(map_name1,  learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
 
         if eval == True:
-            win_rate = evaluation(env1, agent1, 32)
+            win_rate = evaluation(env, agent, 32)
             if vessl_on == True:
                 vessl.log(step = t, payload = {'win_rate' : win_rate})
                 wr_df = pd.DataFrame(win_rates)

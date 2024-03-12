@@ -8,19 +8,21 @@ import os
 from torch.optim.lr_scheduler import StepLR
 from collections import OrderedDict
 from GDN import NodeEmbedding
-
+from utils import *
 from GAT.model import GAT
 from GAT.layers import device
-from cfg import get_cfg
+
 import numpy as np
 from GLCN.GLCN import GLCN
+from cfg import get_cfg
+
 cfg = get_cfg()
 from torch.distributions import Categorical
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class PPONetwork(nn.Module):
-    def __init__(self, state_size, state_action_size, layers=[8,12]):
+    def __init__(self, state_size, state_action_size, layers=[8, 12]):
         super(PPONetwork, self).__init__()
         self.state_size = state_size
         self.NN_sequential = OrderedDict()
@@ -66,23 +68,6 @@ class PPONetwork(nn.Module):
         v = self.output_v(x)
         return v
 
-
-# num_agent=env1.get_env_info()["n_agents"],
-#                    num_enemy=env1.get_env_info()["n_enemies"],
-#                    feature_size=env1.get_env_info()["node_features"],
-#                    action_size=env1.get_env_info()["n_actions"],
-
-# hidden_size_obs = 30,
-# hidden_size_action = 30,
-# n_representation_obs = 30,
-# n_representation_action = 30,
-# graph_embedding = 30)
-# learning_rate
-# gamma
-# lmbda
-# eps_clip
-# K_epoch
-# layers
 
 
 class Agent:
@@ -157,8 +142,6 @@ class Agent:
         self.action_representation = NodeEmbedding(feature_size=self.feature_size + 5,
                                                    hidden_size=self.hidden_size_action,
                                                    n_representation_obs=self.n_representation_action).to(device)  # 수정사항
-
-
 
 
         self.func_obs  = GLCN(feature_size=self.n_representation_obs,
@@ -461,21 +444,7 @@ class Agent:
                 else:
                     gamma1 = self.gamma1
                     gamma2 = self.gamma2
-                    X_i = X.unsqueeze(2)
-                    X_j = X.unsqueeze(1)
-                    euclidean_distance = torch.sum((X_i - X_j) ** 2, dim=3).detach()
-                    laplacian_quadratic = torch.sum(euclidean_distance * A, dim=(1, 2))
-
-                    frobenius_norm = torch.sum(A ** 2, dim=(1, 2))
-                    var = torch.mean(torch.var(A, dim=2), dim=1)
-
-                    D = torch.zeros_like(A)
-                    for i in range(A.size(0)):
-                        D[i] = torch.diag(A[i].sum(1))
-                    L = D - A
-                    lap_quad = laplacian_quadratic.mean()
-                    sec_eig_upperbound = (num_nodes * (num_nodes - 1)) ** 2 * (
-                            frobenius_norm.mean() - num_nodes ** 2 * var.mean())
+                    lap_quad, sec_eig_upperbound = get_graph_loss(X, A, num_nodes)
                     if cfg.softmax == True:
                         loss = -surr + 0.5 * value_loss + gamma1 * lap_quad + gamma2 * gamma1 * frobenius_norm.mean()
                     else:
