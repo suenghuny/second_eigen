@@ -306,7 +306,7 @@ class Agent:
                         "7": self.node_representation.state_dict(),
                         "optimizer_state_dict": self.optimizer.state_dict()
                         },
-                       file_dir + "episode%d.pt" % e)
+                       file_dir )
 
 
         #import copy
