@@ -290,8 +290,10 @@ class Agent:
                            list(self.func_glcn.parameters()) + \
                            list(self.action_representation.parameters())
 
+        #self.graph_params = list(self.func_glcn.parameters())
+
         self.optimizer = optim.RMSprop(self.eval_params, lr=learning_rate)
-        self.optimizer_graph = optim.RMSprop(self.eval_params, lr=learning_rate_graph)
+        #self.optimizer_graph = optim.RMSprop(self.graph_params, lr=learning_rate_graph)
 
 
 
@@ -493,20 +495,26 @@ class Agent:
         td_target = rewards*self.num_agent + self.gamma* (1-dones)*q_tot_tar
 
         if cfg.given_edge == True:
-            loss = F.mse_loss(q_tot, td_target.detach()) #+ gamma1* lap_quad - gamma2 * gamma1 * sec_eig_upperbound
+            rl_loss = F.mse_loss(q_tot, td_target.detach()) #+ gamma1* lap_quad - gamma2 * gamma1 * sec_eig_upperbound
+            loss = rl_loss
         else:
-
-            loss = F.mse_loss(q_tot, td_target.detach())
+            rl_loss = F.mse_loss(q_tot, td_target.detach())
             graph_loss = gamma1* lap_quad - gamma2 * gamma1 * sec_eig_upperbound
 
+            loss = graph_loss+rl_loss
 
-        self.optimizer.zero_grad()
-        self.optimizer_graph.zero_grad()
-        loss.backward(retain_graph = True)
-        graph_loss.backward()
+        loss.backward()
         torch.nn.utils.clip_grad_norm_(self.eval_params, 10)
         self.optimizer.step()
-        self.optimizer_graph.step()
+        self.optimizer.zero_grad()
+
+        # # graph_loss에 대한 역전파
+        # graph_loss.backward()
+        # torch.nn.utils.clip_grad_norm_(self.graph_params, 10)
+        # self.optimizer_graph.step()
+        # self.optimizer_graph.zero_grad()
+
+
         tau = 1e-3
         for target_param, local_param in zip(self.Q_tar.parameters(), self.Q.parameters()):
             target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
