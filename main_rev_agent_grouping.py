@@ -235,7 +235,7 @@ def main():
             print(second_eig_upperbound)
         initializer = False
         epi_r.append(episode_reward)
-        if e % 1000 == 0:
+        if e % 1000 == 0:#
             if vessl_on == True:
                 agent.save_model("\output\{}.pt".format(e))
             else:
