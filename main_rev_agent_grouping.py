@@ -239,7 +239,7 @@ def main():
             if vessl_on == True:
                 agent.save_model("\output\{}.pt".format(e))
             else:
-                agent.save_model("\output\map_name_{}__lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.pt".format(map_name1, learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
+                agent.save_model("\output\{}.pt".format(e))
         if e % 10 == 1:
             if vessl_on == True:
                 vessl.log(step = e, payload = {'reward' : np.mean(epi_r)})

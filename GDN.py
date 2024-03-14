@@ -295,8 +295,8 @@ class Agent:
 
 
 
-    def save_model(self, file_dir, e):
-        torch.save({"episode": e,
+    def save_model(self, file_dir):
+        torch.save({
                         "1": self.Q.state_dict(),
                         "2": self.Q.state_dict(),
                         "3": self.func_glcn.state_dict(),
