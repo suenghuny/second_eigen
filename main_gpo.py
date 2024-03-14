@@ -153,9 +153,9 @@ def main():
     env.generate_num_unit_types(num_unit_types, unit_type_ids)
     if cfg.sweep == True:
         params = {
-            "hidden_size_obs": int(os.environ.get("hidden_size_obs", 64)),
-            "hidden_size_comm": int(os.environ.get("hidden_size_comm", 64)),
-            "hidden_size_action": int(os.environ.get("hidden_size_action", 64)),
+            "hidden_size_obs": int(os.environ.get("hidden_size_obs", 52)),
+            "hidden_size_comm": int(os.environ.get("hidden_size_comm", 56)),
+            "hidden_size_action": int(os.environ.get("hidden_size_action", 52)),
             "n_representation_obs": int(os.environ.get("n_representation_obs", 30)),
             "n_representation_comm": int(os.environ.get("n_representation_comm", 30)),
             "n_representation_action": int(os.environ.get("n_representation_action", 48)),

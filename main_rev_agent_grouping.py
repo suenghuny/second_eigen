@@ -169,17 +169,17 @@ def main():
     env.reset()
     num_unit_types, unit_type_ids = get_agent_type_of_envs([env])
     env.generate_num_unit_types(num_unit_types, unit_type_ids)
-    hidden_size_obs = int(os.environ.get("hidden_size_obs", 32))#cfg.hidden_size_obs       # GAT 해당(action 및 node representation의 hidden_size)
-    hidden_size_comm = int(os.environ.get("hidden_size_comm", 48))#cfg.hidden_size_comm
-    hidden_size_action = int(os.environ.get("hidden_size_action", 56))  # cfg.hidden_size_comm
+    hidden_size_obs = int(os.environ.get("hidden_size_obs", 52))#cfg.hidden_size_obs       # GAT 해당(action 및 node representation의 hidden_size)
+    hidden_size_comm = int(os.environ.get("hidden_size_comm", 56))#cfg.hidden_size_comm
+    hidden_size_action = int(os.environ.get("hidden_size_action", 52))  # cfg.hidden_size_comm
     hidden_size_Q = int(os.environ.get("hidden_size_Q",96)) #cfg.hidden_size_Q         # GAT 해당
 
-    n_representation_obs = int(os.environ.get("n_representation_obs", 32))#cfg.n_representation_obs  # GAT 해당
-    n_representation_comm = int(os.environ.get("n_representation_comm", 64))#cfg.n_representation_comm
+    n_representation_obs = int(os.environ.get("n_representation_obs", 36))#cfg.n_representation_obs  # GAT 해당
+    n_representation_comm = int(os.environ.get("n_representation_comm", 72))#cfg.n_representation_comm
     n_representation_action = int(os.environ.get("n_representation_action", 64))  # cfg.n_representation_comm
 
-    graph_embedding = int(os.environ.get("graph_embedding", 72))
-    graph_embedding_comm = int(os.environ.get("graph_embedding_comm", 84))
+    graph_embedding = int(os.environ.get("graph_embedding", 100))
+    graph_embedding_comm = int(os.environ.get("graph_embedding_comm", 64))
 
 
     buffer_size = int(os.environ.get("buffer_size", 150000))#cfg.buffer_size
@@ -189,12 +189,12 @@ def main():
     learning_rate_graph = float(os.environ.get("learning_rate_graph", 1e-5))  # cfg.lr
     num_episode = 140000 #cfg.num_episode
     train_start = int(os.environ.get("train_start", 10))# cfg.train_start
-    epsilon = float(os.environ.get("epsilon", 1.0))#cfg.epsilon
-    min_epsilon = float(os.environ.get("min_epsilon", 0.05)) #cfg.min_epsilon
+    epsilon = float(os.environ.get("epsilon", 0.792247479108028))#cfg.epsilon
+    min_epsilon = float(os.environ.get("min_epsilon", 0.03627280427199962)) #cfg.min_epsilon
     anneal_steps = int(os.environ.get("anneal_steps", 50000))#cfg.anneal_steps
 
-    gamma1 = float(os.environ.get("gamma1", 0.01))
-    gamma2 = float(os.environ.get("gamma2", 5))
+    gamma1 = float(os.environ.get("gamma1", 0.03603227668493379))
+    gamma2 = float(os.environ.get("gamma2", 2.849012326105235))
     anneal_epsilon = (epsilon - min_epsilon) / anneal_steps
     initializer = True
 
