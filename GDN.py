@@ -295,12 +295,25 @@ class Agent:
 
 
 
-    def save_model(self, path):
-        import copy
-        temp_agent = copy.deepcopy(self)
+    def save_model(self, file_dir, e):
+        torch.save({"episode": e,
+                        "1": self.Q.state_dict(),
+                        "2": self.Q.state_dict(),
+                        "3": self.func_glcn.state_dict(),
+                        "4": self.func_obs.state_dict(),
+                        "5": self.action_representation.state_dict(),
+                        "6": self.node_representation_comm.state_dict() ,
+                        "7": self.node_representation.state_dict(),
+                        "optimizer_state_dict": self.optimizer.state_dict()
+                        },
+                       file_dir + "episode%d.pt" % e)
+
+
+        #import copy
+       # temp_agent = copy.deepcopy(self)
         #del temp_agent.buffer
         #temp_agent.buffer = Replay_Buffer(self.buffer_size, self.batch_size, self.num_agent, self.action_size)
-        torch.save(temp_agent, path)
+        #torch.save(temp_agent, path)
         #del temp_agent
 
 
@@ -488,6 +501,7 @@ class Agent:
 
 
         self.optimizer.zero_grad()
+        self.optimizer_graph.zero_grad()
         loss.backward(retain_graph = True)
         graph_loss.backward()
         torch.nn.utils.clip_grad_norm_(self.eval_params, 10)
