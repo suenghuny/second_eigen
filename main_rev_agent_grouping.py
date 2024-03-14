@@ -20,7 +20,7 @@ if vessl_on == True:
         os.makedirs(output_dir)
 else:
     from torch.utils.tensorboard import SummaryWriter
-    output_dir = "/output/"
+    output_dir = "output/"
     import os
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
