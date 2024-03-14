@@ -14,6 +14,10 @@ vessl_on = cfg.vessl_on
 if vessl_on == True:
     import vessl
     vessl.init()
+    output_dir = "/output/"
+    import os
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 else:
     from torch.utils.tensorboard import SummaryWriter
 
@@ -237,9 +241,9 @@ def main():
         epi_r.append(episode_reward)
         if e % 1000 == 0:#
             if vessl_on == True:
-                agent.save_model("\output\{}.pt".format(e))
+                agent.save_model(output_dir, e)
             else:
-                agent.save_model("{}.pt".format(e))
+                agent.save_model(output_dir, e)
         if e % 10 == 1:
             if vessl_on == True:
                 vessl.log(step = e, payload = {'reward' : np.mean(epi_r)})

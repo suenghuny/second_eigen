@@ -295,7 +295,7 @@ class Agent:
 
 
 
-    def save_model(self, file_dir):
+    def save_model(self, file_dir, e):
         torch.save({
                         "1": self.Q.state_dict(),
                         "2": self.Q.state_dict(),
@@ -306,7 +306,7 @@ class Agent:
                         "7": self.node_representation.state_dict(),
                         "optimizer_state_dict": self.optimizer.state_dict()
                         },
-                       file_dir )
+                       file_dir+ "episode%d.pt" % e)
 
 
         #import copy
