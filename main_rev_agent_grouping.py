@@ -239,7 +239,7 @@ def main():
             if vessl_on == True:
                 agent.save_model("\output\{}.pt".format(e))
             else:
-                agent.save_model(".\output\{}.pt".format(e))
+                agent.save_model("{}.pt".format(e))
         if e % 10 == 1:
             if vessl_on == True:
                 vessl.log(step = e, payload = {'reward' : np.mean(epi_r)})
