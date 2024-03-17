@@ -186,7 +186,7 @@ def main():
     n_representation_comm = int(os.environ.get("n_representation_comm", 72))#cfg.n_representation_comm
     n_representation_action = int(os.environ.get("n_representation_action", 64))  # cfg.n_representation_comm
 
-    graph_embedding = int(os.environ.get("graph_embedding", 100))
+    graph_embedding = int(os.environ.get("graph_embedding", 56))
     graph_embedding_comm = int(os.environ.get("graph_embedding_comm", 64))
 
 
@@ -201,8 +201,8 @@ def main():
     min_epsilon = float(os.environ.get("min_epsilon", 0.03627280427199962)) #cfg.min_epsilon
     anneal_steps = int(os.environ.get("anneal_steps", 50000))#cfg.anneal_steps
 
-    gamma1 = float(os.environ.get("gamma1", 0.03603227668493379))
-    gamma2 = float(os.environ.get("gamma2", 2.849012326105235))
+    gamma1 = float(os.environ.get("gamma1", 0.01))
+    gamma2 = float(os.environ.get("gamma2", 4))
     anneal_epsilon = (epsilon - min_epsilon) / anneal_steps
     initializer = True
 
