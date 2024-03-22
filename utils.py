@@ -17,7 +17,7 @@ hydralisk : 80.00.00.625
 baneling : 30.00.00.375
 spine crawler : 300.00.01.125`
 """
-def get_graph_loss(X, A, num_nodes):
+def get_graph_loss(X, A, num_nodes, e = False, anneal_episodes_graph_variance = False, min_graph_variance = False):
     X_i = X.unsqueeze(2)
     X_j = X.unsqueeze(1)
     euclidean_distance = torch.sum((X_i - X_j) ** 2, dim=3).detach()
@@ -30,12 +30,17 @@ def get_graph_loss(X, A, num_nodes):
         D[i] = torch.diag(A[i].sum(1))
 
     L = D-A
-    # sec_eig = np.mean([np.linalg.eigh(L[G, :, :].detach().cpu().numpy())[0][1] for G in range(L.shape[0])])
-    # print(sec_eig)
-
-    lap_quad = laplacian_quadratic.mean()
-    sec_eig_upperbound = (num_nodes / (num_nodes - 1)) ** 2 * (frobenius_norm - num_nodes ** 2 * var).mean()
-    #print(sec_eig_upperbound)
+    #print(A[0])
+    #sec_eig = np.mean([np.linalg.eigh(L[G, :, :].detach().cpu().numpy())[0][1] for G in range(L.shape[0])])
+    #print(sec_eig)
+    if anneal_episodes_graph_variance != False:
+        #print("??")
+        gamma3 = num_nodes**2*(1-e/anneal_episodes_graph_variance*(1-min_graph_variance))
+        lap_quad = laplacian_quadratic.mean()
+        sec_eig_upperbound = (num_nodes / (num_nodes - 1)) ** 2 * (frobenius_norm - gamma3 * var).mean()
+    else:
+        lap_quad = laplacian_quadratic.mean()
+        sec_eig_upperbound = (num_nodes / (num_nodes - 1)) ** 2 * (frobenius_norm - num_nodes ** 2 * var).mean()
     return lap_quad, sec_eig_upperbound
 
 def get_agent_type_of_envs(envs):

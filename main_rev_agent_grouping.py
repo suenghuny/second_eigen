@@ -39,7 +39,6 @@ else:
     env = StarCraft2Env(map_name = cfg.map_name)
 
 
-regularizer = 0.0
 map_name1 = cfg.map_name
 heterogenous = False
 
@@ -152,9 +151,9 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
 
         if e >= train_start:
             if cfg.given_edge == True:
-                loss = agent.learn(regularizer)
+                loss = agent.learn(e = e)
             else:
-                loss, laplacian_quadratic, sec_eig_upperbound = agent.learn(regularizer)
+                loss, laplacian_quadratic, sec_eig_upperbound = agent.learn(e = e)
                 laplacian_quadratic_list.append(laplacian_quadratic)
                 sec_eig_upperbound_list.append(sec_eig_upperbound)
             losses.append(loss.detach().item())
@@ -200,9 +199,14 @@ def main():
     epsilon = float(os.environ.get("epsilon", 0.8))#cfg.epsilon
     min_epsilon = float(os.environ.get("min_epsilon", 0.03627280427199962)) #cfg.min_epsilon
     anneal_steps = int(os.environ.get("anneal_steps", 50000))#cfg.anneal_steps
+    #anneal_episodes_graph_variance = int(os.environ.get("anneal_steps", 50000))
 
     gamma1 = float(os.environ.get("gamma1", 0.01))
-    gamma2 = float(os.environ.get("gamma2", 4))
+    gamma2 = float(os.environ.get("gamma2", 2))
+
+    anneal_episodes_graph_variance =float(os.environ.get("anneal_episodes_graph_variance", 2000))
+    min_graph_variance = float(os.environ.get("min_graph_variance", 0.01))
+
     anneal_epsilon = (epsilon - min_epsilon) / anneal_steps
     initializer = True
 
@@ -229,7 +233,10 @@ def main():
                    learning_rate_graph = learning_rate_graph,
                    gamma = gamma,
                    gamma1 = gamma1,
-                   gamma2 = gamma2)
+                   gamma2 = gamma2,
+                   anneal_episodes_graph_variance = anneal_episodes_graph_variance,
+                  min_graph_variance = min_graph_variance
+                  )
 
 
     t = 0
@@ -240,7 +247,7 @@ def main():
             episode_reward, epsilon, t, eval = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer)
         else:
             episode_reward, epsilon, t, eval,laplacian_quadratic, second_eig_upperbound = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer)
-            print(second_eig_upperbound)
+            print("upper_bound", second_eig_upperbound)
         initializer = False
         epi_r.append(episode_reward)
         if e % 1000 == 0:#

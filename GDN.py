@@ -200,8 +200,10 @@ class Agent:
                  learning_rate_graph,
                  gamma,
                  gamma1,
-                 gamma2
-                 ):
+                 gamma2,
+                 anneal_episodes_graph_variance,
+                 min_graph_variance
+    ):
         torch.manual_seed(81)
         random.seed(81)
         np.random.seed(81)
@@ -239,8 +241,8 @@ class Agent:
         self.batch_size = batch_size
         self.buffer = Replay_Buffer(self.buffer_size, self.batch_size, self.num_agent)
 
-
-
+        self.anneal_episodes_graph_variance=anneal_episodes_graph_variance
+        self.min_graph_variance=min_graph_variance
 
 
 
@@ -412,7 +414,6 @@ class Agent:
         action_feature 차원      : action_size X n_action_feature
         avail_action 차원        : n_agents X action_size
         """
-
         mask = torch.tensor(avail_action, device=device).bool()
         action_feature = torch.tensor(action_feature, device=device, dtype = torch.float64).float()
         action_size = action_feature.shape[0]
@@ -442,7 +443,7 @@ class Agent:
 
 
 
-    def learn(self, regularizer):
+    def learn(self, e):
         node_features, actions, action_features, edge_indices_enemy, edge_indices_ally, rewards, dones, node_features_next, action_features_next, edge_indices_enemy_next, edge_indices_ally_next, avail_actions_next = self.buffer.sample()
 
         """
@@ -466,7 +467,7 @@ class Agent:
 
             gamma1 = self.gamma1
             gamma2 = self.gamma2
-            lap_quad, sec_eig_upperbound = get_graph_loss(X, A, num_nodes)
+            lap_quad, sec_eig_upperbound = get_graph_loss(X, A, num_nodes, e, self.anneal_episodes_graph_variance,self.min_graph_variance)
 
 
 
@@ -491,7 +492,6 @@ class Agent:
         q_tot_tar = torch.stack(q_tar, dim=1)
         q_tot = self.VDN(q_tot)
         q_tot_tar = self.VDN_target(q_tot_tar)
-
         td_target = rewards*self.num_agent + self.gamma* (1-dones)*q_tot_tar
 
         if cfg.given_edge == True:
@@ -500,13 +500,15 @@ class Agent:
         else:
             rl_loss = F.mse_loss(q_tot, td_target.detach())
             graph_loss = gamma1* lap_quad - gamma2 * gamma1 * sec_eig_upperbound
-
             loss = graph_loss+rl_loss
 
         loss.backward()
         torch.nn.utils.clip_grad_norm_(self.eval_params, 10)
         self.optimizer.step()
         self.optimizer.zero_grad()
+
+
+
 
         # # graph_loss에 대한 역전파
         # graph_loss.backward()
