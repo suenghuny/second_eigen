@@ -441,15 +441,15 @@ class Agent:
 
 
                 if cfg.given_edge == True:
-                    loss = -surr + 0.5 * value_loss
+                    loss = -surr + 0.1 * value_loss
                 else:
                     gamma1 = self.gamma1
                     gamma2 = self.gamma2
                     lap_quad, sec_eig_upperbound, L = get_graph_loss(X, A, num_nodes)
                     if cfg.softmax == True:
-                        loss = -surr + 0.5 * value_loss + gamma1 * lap_quad + gamma2 * gamma1 * frobenius_norm.mean()
+                        loss = -surr + 0.1 * value_loss + gamma1 * lap_quad + gamma2 * gamma1 * frobenius_norm.mean()
                     else:
-                        loss = -surr + 0.5 * value_loss+  gamma1* lap_quad - gamma2 * gamma1 * sec_eig_upperbound
+                        loss = -surr + 0.1 * value_loss+  gamma1* lap_quad - gamma2 * gamma1 * sec_eig_upperbound
 
 
             #print(np.array([np.linalg.eigh(L[t, :, :].cpu().detach().numpy())[0][1] for t in range(time_step)]))
