@@ -91,7 +91,7 @@ class GLCN(nn.Module):
             #print(self.feature_obs_size)
             self.a_link = nn.Parameter(torch.empty(size=(self.feature_obs_size, 1)))
             nn.init.xavier_uniform_(self.a_link.data, gain=1.414)
-            self.k_hop = int(os.environ.get("k_hop",3))
+            self.k_hop = int(os.environ.get("k_hop",2))
             self.W = [nn.Parameter(torch.Tensor(size=(feature_size, graph_embedding_size))) if k == 0 else nn.Parameter(torch.Tensor(size=(graph_embedding_size, graph_embedding_size)))
                       for k in range(self.k_hop) ]
             [glorot(W) for W in self.W]
@@ -212,7 +212,6 @@ class GLCN(nn.Module):
                         else:
                             support = torch.mm(H, self.W[k])
                             output = torch.mm(torch.mm(D_hat_inv_sqrt, A_hat), D_hat_inv_sqrt)
-
                             H = torch.mm(output.detach(), support)
                         if k+1 == self.k_hop:
                             H_placeholder.append(H)
