@@ -151,6 +151,7 @@ class Agent:
                                 graph_embedding_size=self.graph_embedding_comm, link_prediction = False).to(device)
         else:
             self.func_glcn = GLCN(feature_size=self.graph_embedding+self.n_representation_comm,
+                                  feature_obs_size=self.graph_embedding,
                                 graph_embedding_size=self.graph_embedding_comm, link_prediction = True).to(device)
 
         self.network = PPONetwork(state_size=self.graph_embedding_comm,
@@ -444,11 +445,11 @@ class Agent:
                 else:
                     gamma1 = self.gamma1
                     gamma2 = self.gamma2
-                    lap_quad, sec_eig_upperbound = get_graph_loss(X, A, num_nodes)
+                    lap_quad, sec_eig_upperbound, L = get_graph_loss(X, A, num_nodes)
                     if cfg.softmax == True:
                         loss = -surr + 0.5 * value_loss + gamma1 * lap_quad + gamma2 * gamma1 * frobenius_norm.mean()
                     else:
-                        loss = -surr + 0.5 * value_loss+ gamma1* lap_quad - gamma2 * gamma1 * sec_eig_upperbound
+                        loss = -surr + 0.5 * value_loss+  gamma1* lap_quad - gamma2 * gamma1 * sec_eig_upperbound
 
 
             #print(np.array([np.linalg.eigh(L[t, :, :].cpu().detach().numpy())[0][1] for t in range(time_step)]))

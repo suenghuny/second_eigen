@@ -58,7 +58,7 @@ def evaluation(env, agent):
         episode_reward = 0
         step = 0
         while (not done) and (step < max_episode_len):
-            node_feature, edge_index_enemy, edge_index_comm = env.get_heterogeneous_graph(heterogeneous=heterogenous)
+            node_feature, edge_index_enemy, edge_index_comm, _ = env.get_heterogeneous_graph(heterogeneous=heterogenous)
             if cfg.given_edge == True:
                 node_embedding = agent.get_node_representation_gpo(node_feature, edge_index_enemy, edge_index_comm)
             else:
@@ -96,7 +96,7 @@ def train(agent, env, e, t, monitor, params):
     start = time.time()
 
     while (not done) and (step < max_episode_limit):
-        node_feature, edge_index_enemy, edge_index_comm = env.get_heterogeneous_graph(heterogeneous=heterogenous)
+        node_feature, edge_index_enemy, edge_index_comm,_ = env.get_heterogeneous_graph(heterogeneous=heterogenous)
         if cfg.given_edge == True:
             node_embedding = agent.get_node_representation_gpo(node_feature, edge_index_enemy, edge_index_comm)
         else:
@@ -163,11 +163,11 @@ def main():
             "hidden_size_obs": int(os.environ.get("hidden_size_obs", 52)),
             "hidden_size_comm": int(os.environ.get("hidden_size_comm", 56)),
             "hidden_size_action": int(os.environ.get("hidden_size_action", 52)),
-            "n_representation_obs": int(os.environ.get("n_representation_obs", 30)),
-            "n_representation_comm": int(os.environ.get("n_representation_comm", 30)),
-            "n_representation_action": int(os.environ.get("n_representation_action", 48)),
-            "graph_embedding": int(os.environ.get("graph_embedding", 84)),
-            "graph_embedding_comm": int(os.environ.get("graph_embedding_comm", 72)),
+            "n_representation_obs": int(os.environ.get("n_representation_obs", 36)),
+            "n_representation_comm": int(os.environ.get("n_representation_comm", 72)),
+            "n_representation_action": int(os.environ.get("n_representation_action", 64)),
+            "graph_embedding": int(os.environ.get("graph_embedding", 56)),
+            "graph_embedding_comm": int(os.environ.get("graph_embedding_comm", 64)),
             "learning_rate": cfg.lr,
             "learning_rate_graph": float(os.environ.get("learning_rate_graph", 0.0005387456623850075)),
             "gamma1": float(os.environ.get("gamma1", 0.1)),

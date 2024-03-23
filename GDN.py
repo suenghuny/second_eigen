@@ -467,7 +467,7 @@ class Agent:
 
             gamma1 = self.gamma1
             gamma2 = self.gamma2
-            lap_quad, sec_eig_upperbound = get_graph_loss(X, A, num_nodes, e, self.anneal_episodes_graph_variance,self.min_graph_variance)
+            lap_quad, sec_eig_upperbound, L = get_graph_loss(X, A, num_nodes, e, self.anneal_episodes_graph_variance,self.min_graph_variance)
 
 
 

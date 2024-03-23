@@ -167,7 +167,8 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
     if cfg.given_edge == True:
         return episode_reward,epsilon, t, eval
     else:
-        return episode_reward, epsilon, t, eval, np.mean(laplacian_quadratic_list), np.mean(sec_eig_upperbound_list)
+        return episode_reward, epsilon, t, eval, np.mean(laplacian_quadratic_list), np.mean(
+            sec_eig_upperbound_list)
 
 
 
@@ -202,9 +203,9 @@ def main():
     #anneal_episodes_graph_variance = int(os.environ.get("anneal_steps", 50000))
 
     gamma1 = float(os.environ.get("gamma1", 0.01))
-    gamma2 = float(os.environ.get("gamma2", 2))
+    gamma2 = float(os.environ.get("gamma2", 500000))
 
-    anneal_episodes_graph_variance =float(os.environ.get("anneal_episodes_graph_variance", 2000))
+    anneal_episodes_graph_variance =float(os.environ.get("anneal_episodes_graph_variance", 100000))
     min_graph_variance = float(os.environ.get("min_graph_variance", 0.01))
 
     anneal_epsilon = (epsilon - min_epsilon) / anneal_steps

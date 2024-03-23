@@ -88,6 +88,7 @@ class GLCN(nn.Module):
         self.link_prediction = link_prediction
         if self.link_prediction == True:
             self.feature_obs_size = feature_obs_size
+            #print(self.feature_obs_size)
             self.a_link = nn.Parameter(torch.empty(size=(self.feature_obs_size, 1)))
             nn.init.xavier_uniform_(self.a_link.data, gain=1.414)
             self.k_hop = int(os.environ.get("k_hop",3))
