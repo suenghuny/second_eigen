@@ -58,7 +58,7 @@ def evaluation(env, agent):
         episode_reward = 0
         step = 0
         while (not done) and (step < max_episode_len):
-            node_feature, edge_index_enemy, edge_index_comm, _ = env.get_heterogeneous_graph(heterogeneous=heterogenous)
+            node_feature, edge_index_enemy, edge_index_comm, _, dead_masking = env.get_heterogeneous_graph(heterogeneous=heterogenous)
             if cfg.given_edge == True:
                 node_embedding = agent.get_node_representation_gpo(node_feature, edge_index_enemy, edge_index_comm)
             else:
@@ -67,7 +67,7 @@ def evaluation(env, agent):
             avail_action = env.get_avail_actions()
             action_feature = env.get_action_feature()  # 차원 : action_size X n_action_feature
             agent.eval_check(eval=True)
-            action, prob = agent.sample_action(node_embedding, action_feature, avail_action,
+            action, prob,_ = agent.sample_action(node_embedding, action_feature, avail_action,
                                                num_agent=env.get_env_info()["n_agents"])
             reward, done, info = env.step(action)
             episode_reward += reward
@@ -96,7 +96,7 @@ def train(agent, env, e, t, monitor, params):
     start = time.time()
 
     while (not done) and (step < max_episode_limit):
-        node_feature, edge_index_enemy, edge_index_comm,_ = env.get_heterogeneous_graph(heterogeneous=heterogenous)
+        node_feature, edge_index_enemy, edge_index_comm, _, dead_masking = env.get_heterogeneous_graph(heterogeneous=heterogenous)
         if cfg.given_edge == True:
             node_embedding = agent.get_node_representation_gpo(node_feature, edge_index_enemy, edge_index_comm)
         else:
@@ -104,7 +104,7 @@ def train(agent, env, e, t, monitor, params):
         avail_action = env.get_avail_actions()
         action_feature = env.get_action_feature()  # 차원 : action_size X n_action_feature
         agent.eval_check(eval=True)
-        action, prob = agent.sample_action(node_embedding, action_feature, avail_action, num_agent = env.get_env_info()["n_agents"])
+        action, prob, factorized_probs = agent.sample_action(node_embedding, action_feature, avail_action, num_agent = env.get_env_info()["n_agents"])
         reward, done, info = env.step(action)
         transition = (
                       node_feature,
@@ -116,6 +116,8 @@ def train(agent, env, e, t, monitor, params):
                       reward,
                       done,
                       edge_index_comm,
+                      factorized_probs,
+                      dead_masking
                       )
         agent.put_data(transition)
         episode_reward += reward
@@ -238,36 +240,6 @@ def main():
             win_rates = evaluation(env, agent)
             if cfg.vessl_on == True:
                 vessl.log(step=t, payload={'win_rates': win_rates})
-
-
-        #     if vessl_on == True:
-        #         print("Model save")
-        #         agent1.save_model(output_dir+"{}.pt".format(t))
-        #     else:
-        #         print("Model save")
-        #         agent1.save_model(output_dir+"{}.pt".format(t))
-        # if e % 100 == 1:
-        #     if vessl_on == True:
-        #         vessl.log(step = e, payload = {'reward' : np.mean(epi_r)})
-        #         epi_r = []
-        #         r_df= pd.DataFrame(epi_r)
-        #         r_df.to_csv(output_dir+"reward.csv")
-        #     else:
-        #         r_df= pd.DataFrame(epi_r)
-        #         r_df.to_csv(output_dir+"reward.csv")
-
-        # if eval == True:
-        #     win_rate = evaluation(env1, agent1, 32)
-        #     win_rates.append(win_rate)
-        #     if vessl_on == True:
-        #         vessl.log(step = t, payload = {'win_rate' : win_rate})
-        #         wr_df = pd.DataFrame(win_rates)
-        #         wr_df.to_csv(output_dir+"win_rate.csv")
-        #     else:
-        #         wr_df = pd.DataFrame(win_rates)
-        #         wr_df.to_csv(output_dir+"win_rate.csv")
-
-
 
 
 if __name__ == '__main__':
