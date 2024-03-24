@@ -108,7 +108,7 @@ class GLCN(nn.Module):
             A = F.softmax(h, dim = 1)
             A = (A+A.T)/2
         else:
-            h = h.detach()
+            h = h.detach()#
             h = h[:, :self.feature_obs_size]
             h = torch.einsum("ijk,kl->ijl", torch.abs(h.unsqueeze(1) - h.unsqueeze(0)), self.a_link)
             A = F.sigmoid(h).squeeze(2)
