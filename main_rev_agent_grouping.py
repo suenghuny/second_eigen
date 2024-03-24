@@ -72,7 +72,7 @@ def evaluation(env, agent, num_eval):
         while (not done) and (step < max_episode_len):
             step += 1
 
-            node_feature, edge_index_enemy, edge_index_ally, n_node_features = env.get_heterogeneous_graph(heterogeneous = heterogenous)
+            node_feature, edge_index_enemy, edge_index_ally, n_node_features,_ = env.get_heterogeneous_graph(heterogeneous = heterogenous)
             if cfg.given_edge == True:
                 node_representation = agent.get_node_representation_temp(
                                                                      node_feature,
@@ -122,7 +122,7 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
         1. enemy_visibility에 대한 adjacency matrix 추출(self loop 포함) / 아군 유닛의 시야로부터 적에 대한 visibility relation
         2. ally_communication에 대한에 대한 adjacency matrix 추출                 / 아군 유닛의 시야로부터 적에 대한 visibility
         """
-        node_feature, edge_index_enemy, edge_index_ally, n_node_features = env.get_heterogeneous_graph(heterogeneous=heterogenous)
+        node_feature, edge_index_enemy, edge_index_ally, n_node_features,_ = env.get_heterogeneous_graph(heterogeneous=heterogenous)
 
         if cfg.given_edge == True:
             node_representation = agent.get_node_representation_temp(
@@ -202,10 +202,10 @@ def main():
     anneal_steps = int(os.environ.get("anneal_steps", 50000))#cfg.anneal_steps
     #anneal_episodes_graph_variance = int(os.environ.get("anneal_steps", 50000))
 
-    gamma1 = float(os.environ.get("gamma1", 0.01))
-    gamma2 = float(os.environ.get("gamma2", 500000))
+    gamma1 = float(os.environ.get("gamma1", 0.001))
+    gamma2 = float(os.environ.get("gamma2", 3))
 
-    anneal_episodes_graph_variance =float(os.environ.get("anneal_episodes_graph_variance", 100000))
+    anneal_episodes_graph_variance =float(os.environ.get("anneal_episodes_graph_variance",float('inf')))
     min_graph_variance = float(os.environ.get("min_graph_variance", 0.01))
 
     anneal_epsilon = (epsilon - min_epsilon) / anneal_steps
