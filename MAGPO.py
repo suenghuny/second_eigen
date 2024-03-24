@@ -586,10 +586,12 @@ class Agent:
                     ratio = torch.exp(torch.log(pi) - torch.log(pi_old).detach())  # a/b == exp(log(a)-log(b))
                     surr1 = ratio * (advantage_i.detach().squeeze())
                     surr2 = torch.clamp(ratio, 1 - self.eps_clip, 1 + self.eps_clip) * (advantage_i.detach().squeeze())
+                    entropy = -(pi * torch.log(pi)).sum(1).mean()
+                    #print(torch.min(surr1, surr2).mean(), entropy.mean()/num_agent)
                     if n == 0:
-                        surr = torch.min(surr1, surr2).mean()/num_agent
+                        surr = torch.min(surr1, surr2).mean()/num_agent+0.01*entropy.mean()/num_agent
                     else:
-                        surr+= torch.min(surr1, surr2).mean()/num_agent
+                        surr+= torch.min(surr1, surr2).mean()/num_agent+0.01*entropy.mean()/num_agent
 
                 value_loss =  F.smooth_l1_loss(v_s, td_target.detach()).mean()
 
