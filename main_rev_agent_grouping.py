@@ -197,14 +197,15 @@ def main():
     hidden_size_obs = int(os.environ.get("hidden_size_obs", 52))#cfg.hidden_size_obs       # GAT 해당(action 및 node representation의 hidden_size)
     hidden_size_comm = int(os.environ.get("hidden_size_comm", 56))#cfg.hidden_size_comm
     hidden_size_action = int(os.environ.get("hidden_size_action", 52))  # cfg.hidden_size_comm
-    hidden_size_Q = int(os.environ.get("hidden_size_Q",96)) #cfg.hidden_size_Q         # GAT 해당
+    hidden_size_Q = int(os.environ.get("hidden_size_Q",128)) #cfg.hidden_size_Q         # GAT 해당
 
-    n_representation_obs = int(os.environ.get("n_representation_obs", 36))#cfg.n_representation_obs  # GAT 해당
-    n_representation_comm = int(os.environ.get("n_representation_comm", 72))#cfg.n_representation_comm
-    n_representation_action = int(os.environ.get("n_representation_action", 64))  # cfg.n_representation_comm
+    n_representation_obs = int(os.environ.get("n_representation_obs", 24))#cfg.n_representation_obs  # GAT 해당
+    n_representation_action = int(os.environ.get("n_representation_action", 36))  # cfg.n_representation_comm
+    n_representation_comm = int(os.environ.get("n_representation_comm", 48))#cfg.n_representation_comm
 
-    graph_embedding = int(os.environ.get("graph_embedding", 72))
-    graph_embedding_comm = int(os.environ.get("graph_embedding_comm", 84))
+
+    graph_embedding = int(os.environ.get("graph_embedding", 36))
+    graph_embedding_comm = int(os.environ.get("graph_embedding_comm", 64))
 
 
     buffer_size = int(os.environ.get("buffer_size", 100000))#cfg.buffer_size

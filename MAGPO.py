@@ -157,11 +157,11 @@ class Agent:
         self.func_obs  = GLCN(feature_size=self.n_representation_obs,
                               graph_embedding_size=self.graph_embedding, link_prediction = False).to(device)
         if cfg.given_edge == True:
-            self.func_glcn = GLCN(feature_size=self.graph_embedding+self.n_representation_comm,
+            self.func_glcn = GLCN(feature_size=self.graph_embedding,
                                 graph_embedding_size=self.graph_embedding_comm, link_prediction = False).to(device)
             self.func_glcn2 = GLCN(feature_size=self.graph_embedding_comm,graph_embedding_size=self.graph_embedding_comm, link_prediction=False).to(device)
         else:
-            self.func_glcn = GLCN(feature_size=self.graph_embedding+self.n_representation_comm,
+            self.func_glcn = GLCN(feature_size=self.graph_embedding,
                                   feature_obs_size=self.graph_embedding,
                                 graph_embedding_size=self.graph_embedding_comm, link_prediction = True).to(device)
 
@@ -258,31 +258,30 @@ class Agent:
             with torch.no_grad():
                 node_feature = torch.tensor(node_feature, dtype=torch.float,device=device)
                 node_embedding_obs = self.node_representation(node_feature)
-                node_embedding_comm = self.node_representation_comm(node_feature[:,:-1])
+                #node_embedding_comm = self.node_representation_comm(node_feature[:,:-1])
                 edge_index_obs = torch.tensor(edge_index_obs, dtype=torch.long, device=device)
                 edge_index_comm = torch.tensor(edge_index_comm, dtype=torch.long, device=device)
                 node_embedding_obs = self.func_obs(X = node_embedding_obs, A = edge_index_obs)
-                cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim = 1)
+                #cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim = 1)
                 if cfg.given_edge == True:
-                    node_embedding = self.func_glcn(X=cat_embedding[:n_agent, :], A=edge_index_comm)
+                    node_embedding = self.func_glcn(X=node_embedding_obs[:n_agent, :], A=edge_index_comm)
                     node_embedding = self.func_glcn2(X=node_embedding, A=edge_index_comm)
-
                     return node_embedding
                 else:
-                    node_embedding, A, X = self.func_glcn(dead_masking= dead_masking, X = cat_embedding[:n_agent, :], A = None)
+                    node_embedding, A, X = self.func_glcn(dead_masking= dead_masking, X = node_embedding_obs[:n_agent, :], A = None)
                     return node_embedding, A, X
         else:
             node_feature = torch.tensor(node_feature, dtype=torch.float, device=device)
             node_embedding_obs = self.node_representation(node_feature)
-            node_embedding_comm = self.node_representation_comm(node_feature[:, :, :-1])
+            # node_embedding_comm = self.node_representation_comm(node_feature[:, :, :-1])
             node_embedding_obs = self.func_obs(X = node_embedding_obs, A = edge_index_obs, mini_batch = mini_batch)
-            cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim=2)
+            # cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim=2)
             if cfg.given_edge == True:
-                node_embedding = self.func_glcn(X=cat_embedding[:, :n_agent, :], A=edge_index_comm, mini_batch=mini_batch)
+                node_embedding = self.func_glcn(X=node_embedding_obs[:, :n_agent, :], A=edge_index_comm, mini_batch=mini_batch)
                 node_embedding = self.func_glcn2(X=node_embedding , A=edge_index_comm, mini_batch=mini_batch)
                 return node_embedding
             else:
-                node_embedding, A, X, D = self.func_glcn(dead_masking= dead_masking, X = cat_embedding[:, :n_agent, :], A = None, mini_batch = mini_batch)
+                node_embedding, A, X, D = self.func_glcn(dead_masking= dead_masking, X = node_embedding_obs[:, :n_agent, :], A = None, mini_batch = mini_batch)
                 return node_embedding, A, X, D
 
 
