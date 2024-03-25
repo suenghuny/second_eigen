@@ -71,7 +71,7 @@ class GLCN(nn.Module):
             self.a_link = nn.Parameter(torch.empty(size=(self.feature_obs_size, 1)))
             nn.init.xavier_uniform_(self.a_link.data, gain=1.414)
             self.k_hop = int(os.environ.get("k_hop",2))
-            self.sampling = bool(os.environ.get("sampling",False))
+            self.sampling = bool(os.environ.get("sampling",True))
             if self.sampling == True:
                 self.Ws = [nn.Parameter(torch.Tensor(feature_size, graph_embedding_size)) if k == 0 else nn.Parameter(torch.Tensor(size=(graph_embedding_size, graph_embedding_size))) for k in range(self.k_hop)]
                 [glorot(W) for W in self.Ws]
