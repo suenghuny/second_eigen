@@ -1151,11 +1151,12 @@ class StarCraft2Env(MultiAgentEnv):
         return arr
 
     def get_dead_masking(self, node_id):
-        dead_masking = np.zeros(0, dtype=np.float32)
+        dead_masking = 0
         if node_id < self.n_agents:
             unit = self.get_unit_by_id(node_id)
         if unit.health > 0:
-            dead_masking = np.ones(0, dtype=np.float32)
+            dead_masking =1
+
         return dead_masking
 
     def get_node_feature(self, node_id):
@@ -1259,9 +1260,8 @@ class StarCraft2Env(MultiAgentEnv):
             alliance_feats = np.zeros(1, dtype=np.float32)
         else:
             alliance_feats = np.ones(1,  dtype=np.float32)
-        # print(str(unit.health_max)+str(unit.shield_max)+str(unit.radius),  unit_type_feats, unit.alliance, alliance_feats)
 
-        node_feature = np.concatenate((move_avail_feats, pos_feats, unit_type_feats, health_and_shield_feats, alliance_feats))
+        node_feature = np.concatenate((unit_type_feats, move_avail_feats, pos_feats, health_and_shield_feats, alliance_feats))
         node_feature = node_feature.tolist()
 
         return node_feature
@@ -2028,8 +2028,8 @@ class StarCraft2Env(MultiAgentEnv):
         edge_index_enemy = self.get_enemy_visibility_edge_index(heterogeneous=heterogeneous)
         edge_index_ally = self.get_communication_edge_index(heterogeneous=heterogeneous)
         dead_masking = self.get_dead_masking_list()
-        n_node_features = np.array(node_feature).shape[0]
-        return node_feature, edge_index_enemy, edge_index_ally, n_node_features,dead_masking
+        n_agents = self.n_agents
+        return node_feature, edge_index_enemy, edge_index_ally, n_agents,dead_masking
 
 
     def get_heterogeneous_graph2(self, heterogeneous):

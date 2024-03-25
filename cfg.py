@@ -7,10 +7,10 @@ def get_cfg():
     parser.add_argument("--cuda", type=str, default='cuda:0', help="")
     parser.add_argument("--lmbda", type=float, default=0.95, help="GAE lmbda")
     parser.add_argument("--gamma", type=float, default=0.99, help="GAE lmbda")
-    parser.add_argument("--eps_clip", type=float, default=0.18, help="clipping epsilon")
+    parser.add_argument("--eps_clip", type=float, default=0.2, help="clipping epsilon")
     parser.add_argument("--K_epoch", type=int, default=2, help="K-epoch")
 
-    parser.add_argument("--ppo_layers", type=str, default='[128,64,48,32]', help="layer 구조")
+    parser.add_argument("--ppo_layers", type=str, default='[128,64,48,24,8]', help="layer 구조")
     parser.add_argument("--optimizer", type=str, default='ADAM', help="optimizer")
     parser.add_argument("--scheduler_step", type =int, default=1000, help= "scheduler step")
     parser.add_argument("--scheduler_ratio", type=float, default=0.5, help= "scheduler ratio")
@@ -33,7 +33,6 @@ def get_cfg():
     parser.add_argument("--softmax", type=bool, default=False, help="")
     parser.add_argument("--sweep", type=bool, default=True, help="")
     parser.add_argument("--given_edge", type=bool, default=False, help="")
-
     parser.add_argument("--num_episode", type=int, default=1000000, help="number of episode")
     # "hidden_size_obs": cfg.hidden_size_obs,
     # "hidden_size_action": cfg.hidden_size_action,

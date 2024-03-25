@@ -72,21 +72,30 @@ def evaluation(env, agent, num_eval):
         while (not done) and (step < max_episode_len):
             step += 1
 
-            node_feature, edge_index_enemy, edge_index_ally, n_node_features,_ = env.get_heterogeneous_graph(heterogeneous = heterogenous)
+            node_feature, edge_index_enemy, edge_index_ally, _, dead_masking = env.get_heterogeneous_graph(heterogeneous = heterogenous)
+            avail_action = env.get_avail_actions()
+
+
+
+            n_agent = len(avail_action)
             if cfg.given_edge == True:
                 node_representation = agent.get_node_representation_temp(
                                                                      node_feature,
                                                                      edge_index_enemy,
                                                                      edge_index_ally,
+                                                                     n_agent=n_agent,
+                                                                     dead_masking=dead_masking,
                                                                      mini_batch=False)  # 차원 : n_agents X n_representation_comm
             else:
                 node_representation, A, X = agent.get_node_representation_temp(
                                                                      node_feature,
                                                                      edge_index_enemy,
                                                                      edge_index_ally,
-                                                                     mini_batch=False)
+                                                                    n_agent=n_agent,
+                                                                    dead_masking=dead_masking,
+                                                                    mini_batch=False)
             #print(cfg.given_edge, node_representation)
-            avail_action = env.get_avail_actions()
+
             action_feature = env.get_action_feature()  # 차원 : action_size X n_action_feature
             action = agent.sample_action(node_representation, action_feature, avail_action, epsilon=0)
             reward, done, info = env.step(action)
@@ -122,27 +131,35 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
         1. enemy_visibility에 대한 adjacency matrix 추출(self loop 포함) / 아군 유닛의 시야로부터 적에 대한 visibility relation
         2. ally_communication에 대한에 대한 adjacency matrix 추출                 / 아군 유닛의 시야로부터 적에 대한 visibility
         """
-        node_feature, edge_index_enemy, edge_index_ally, n_node_features,_ = env.get_heterogeneous_graph(heterogeneous=heterogenous)
 
+
+
+        node_feature, edge_index_enemy, edge_index_ally, _, dead_masking = env.get_heterogeneous_graph(heterogeneous=heterogenous)
+        avail_action = env.get_avail_actions()
+        n_agent = len(avail_action)
         if cfg.given_edge == True:
             node_representation = agent.get_node_representation_temp(
                 node_feature,
                 edge_index_enemy,
                 edge_index_ally,
-                mini_batch=False)  # 차원 : n_agents X n_representation_comm
+                n_agent=n_agent,
+                dead_masking=dead_masking,
+                mini_batch=False)
         else:
             node_representation, A, X = agent.get_node_representation_temp(
                 node_feature,
                 edge_index_enemy,
                 edge_index_ally,
+                n_agent=n_agent,
+                dead_masking = dead_masking,
                 mini_batch=False)
-        avail_action = env.get_avail_actions()
+
         action_feature = env.get_action_feature()  # 차원 : action_size X n_action_feature
         action = agent.sample_action(node_representation, action_feature, avail_action, epsilon)
 
         reward, done, info = env.step(action)
         agent.buffer.memory(node_feature, action, action_feature, edge_index_enemy, edge_index_ally, reward,
-                            done, avail_action)
+                            done, avail_action, dead_masking)
         episode_reward += reward
         t += 1
         step += 1
@@ -186,12 +203,12 @@ def main():
     n_representation_comm = int(os.environ.get("n_representation_comm", 72))#cfg.n_representation_comm
     n_representation_action = int(os.environ.get("n_representation_action", 64))  # cfg.n_representation_comm
 
-    graph_embedding = int(os.environ.get("graph_embedding", 56))
-    graph_embedding_comm = int(os.environ.get("graph_embedding_comm", 64))
+    graph_embedding = int(os.environ.get("graph_embedding", 72))
+    graph_embedding_comm = int(os.environ.get("graph_embedding_comm", 84))
 
 
-    buffer_size = int(os.environ.get("buffer_size", 150000))#cfg.buffer_size
-    batch_size = int(os.environ.get("batch_size", 32))#cfg.batch_size
+    buffer_size = int(os.environ.get("buffer_size", 100000))#cfg.buffer_size
+    batch_size = int(os.environ.get("batch_size", 24))#cfg.batch_size
     gamma = 0.99 #cfg.gamma
     learning_rate = float(os.environ.get("learning_rate", 1.2e-4))#cfg.lr
     learning_rate_graph = float(os.environ.get("learning_rate_graph", 1e-5))  # cfg.lr

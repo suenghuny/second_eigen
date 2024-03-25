@@ -37,17 +37,11 @@ def get_graph_loss(X, A, num_nodes, e = False, anneal_episodes_graph_variance = 
     #sec_eig = np.mean([np.linalg.eigh(L[G, :, :].detach().cpu().numpy())[0][1] for G in range(L.shape[0])])
     #print(sec_eig)
     if anneal_episodes_graph_variance != False:
-        gamma3 = num_nodes**2*(1-e/anneal_episodes_graph_variance)
-        if gamma3>= min_graph_variance:
-            gamma3 = gamma3
-        else:
-            gamma3 = min_graph_variance
         lap_quad = laplacian_quadratic.mean()
-        sec_eig_upperbound = (num_nodes / (num_nodes - 1)) ** 2 * (frobenius_norm - gamma3 * var).mean()
+        sec_eig_upperbound = (num_nodes / (num_nodes - 1)) ** 2 * (frobenius_norm - num_nodes ** 2 * var).mean()
     else:
         lap_quad = laplacian_quadratic.mean()
-        sec_eig_upperbound = (num_nodes / (num_nodes - 1)) ** 2 * (frobenius_norm -
-                                            num_nodes ** 2 * var).mean()
+        sec_eig_upperbound = (num_nodes / (num_nodes - 1)) ** 2 * (frobenius_norm - num_nodes ** 2 * var).mean()
     return lap_quad, sec_eig_upperbound, L
 
 def get_agent_type_of_envs(envs):

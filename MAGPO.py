@@ -28,9 +28,7 @@ class PPONetwork(nn.Module):
         self.NN_sequential = OrderedDict()
         layers = eval(layers)
         self.fc_pi = nn.Linear(state_action_size, layers[0])
-        self.bn_pi = nn.BatchNorm1d(layers[0])
         self.fc_v = nn.Linear(state_size, layers[0])
-        self.bn_v = nn.BatchNorm1d(layers[0])
         self.fcn = OrderedDict()
         last_layer = layers[0]
         for i in range(1, len(layers)):
@@ -45,9 +43,7 @@ class PPONetwork(nn.Module):
         self.output_v = nn.Linear(last_layer, 1)
 
 
-
-
-    def pi(self, x, visualize = False):
+    def forward(self, x, visualize = False):
         if visualize == False:
             x = self.fc_pi(x)
             x = F.elu(x)
@@ -61,13 +57,35 @@ class PPONetwork(nn.Module):
             pi = self.output_pi(x)
             return x
 
-    def v(self, x):
+
+
+class ValueNetwork(nn.Module):
+    def __init__(self, state_size, state_action_size, layers=[8, 12]):
+        super(ValueNetwork, self).__init__()
+        self.state_size = state_size
+        self.NN_sequential = OrderedDict()
+        layers = eval(layers)
+        self.fc_pi = nn.Linear(state_action_size, layers[0])
+        self.fc_v = nn.Linear(state_size, layers[0])
+        self.fcn = OrderedDict()
+        last_layer = layers[0]
+        for i in range(1, len(layers)):
+            layer = layers[i]
+            if i <= len(layers)-2:
+                self.fcn['linear{}'.format(i)] = nn.Linear(last_layer, layer)
+                self.fcn['activation{}'.format(i)] = nn.ELU()
+                last_layer = layer
+            #else:
+        self.forward_cal = nn.Sequential(self.fcn)
+        self.output_pi = nn.Linear(last_layer, 1)
+        self.output_v = nn.Linear(last_layer, 1)
+
+    def forward(self, x):
         x = self.fc_v(x)
         x = F.elu(x)
         x = self.forward_cal(x)
         v = self.output_v(x)
         return v
-
 
 
 class Agent:
@@ -123,19 +141,11 @@ class Agent:
         NodeEmbedding 수정해야 함
         
         """
-
-        # print(cfg.hidden_size_meta_path + n_representation_action)
-        # print(cfg.hidden_size_meta_path + n_representation_action)
-        # print(cfg.hidden_size_meta_path + n_representation_action)
-        # print(cfg.hidden_size_meta_path + n_representation_action)
-        # print(cfg.hidden_size_meta_path + n_representation_action)
-
-
         self.node_representation =   NodeEmbedding(feature_size=self.feature_size,
                                                    hidden_size=self.hidden_size_obs,
                                                    n_representation_obs=self.n_representation_obs).to(device)  # 수정사항
 
-        self.node_representation_comm = NodeEmbedding(feature_size =self.feature_size,
+        self.node_representation_comm = NodeEmbedding(feature_size =self.feature_size-1,
                                                       hidden_size  =self.hidden_size_comm,
                                                       n_representation_obs=self.n_representation_comm).to(device)  # 수정사항
 
@@ -149,23 +159,37 @@ class Agent:
         if cfg.given_edge == True:
             self.func_glcn = GLCN(feature_size=self.graph_embedding+self.n_representation_comm,
                                 graph_embedding_size=self.graph_embedding_comm, link_prediction = False).to(device)
+            self.func_glcn2 = GLCN(feature_size=self.graph_embedding_comm,graph_embedding_size=self.graph_embedding_comm+20, link_prediction=False).to(device)
         else:
             self.func_glcn = GLCN(feature_size=self.graph_embedding+self.n_representation_comm,
                                   feature_obs_size=self.graph_embedding,
                                 graph_embedding_size=self.graph_embedding_comm, link_prediction = True).to(device)
 
-        self.network = PPONetwork(state_size=self.graph_embedding_comm,
-                                  state_action_size=self.graph_embedding_comm + self.n_representation_action,
+        self.network = PPONetwork(state_size=self.graph_embedding_comm+20,
+                                  state_action_size=self.graph_embedding_comm+20 + self.n_representation_action,
+                                  layers=self.layers).to(device)
+        self.valuenetwork = ValueNetwork(state_size=self.graph_embedding_comm+20,
+                                  state_action_size=self.graph_embedding_comm+20 + self.n_representation_action,
                                   layers=self.layers).to(device)
 
-
-        self.eval_params = list(self.network.parameters()) + \
-                           list(self.node_representation.parameters()) + \
-                           list(self.node_representation_comm.parameters()) + \
-                           list(self.action_representation.parameters()) + \
-                           list(self.func_obs.parameters()) + \
-                           list(self.func_glcn.parameters())
-
+        if cfg.given_edge == True:
+            self.eval_params = list(self.network.parameters()) + \
+                               list(self.valuenetwork.parameters()) + \
+                               list(self.node_representation.parameters()) + \
+                               list(self.node_representation_comm.parameters()) + \
+                               list(self.action_representation.parameters()) + \
+                               list(self.func_obs.parameters()) + \
+                               list(self.func_glcn.parameters()) + \
+                               list(self.func_glcn2.parameters())
+        else:
+            self.eval_params = list(self.network.parameters()) + \
+                               list(self.valuenetwork.parameters()) + \
+                               list(self.node_representation.parameters()) + \
+                               list(self.node_representation_comm.parameters()) + \
+                               list(self.action_representation.parameters()) + \
+                               list(self.func_obs.parameters()) + \
+                               list(self.func_glcn.parameters()) + \
+                               list(self.func_glcn2.parameters())
 
         if cfg.optimizer == 'ADAM':
             self.optimizer1 = optim.Adam(self.eval_params, lr=self.learning_rate)  #
@@ -184,6 +208,7 @@ class Agent:
         self.edge_index_comm_list = list()
         self.factorize_pi_list = list()
         self.dead_masking = list()
+        self.state_list = list()
         self.batch_store = []
 
 
@@ -217,7 +242,7 @@ class Agent:
         for n in range(num_agent):
             obs = node_representation[n].expand(action_size, node_representation[n].shape[0])
             obs_cat_action = torch.concat([obs, action_embedding], dim = 1)                           # shape :
-            logit = self.network.pi(obs_cat_action).squeeze(1)
+            logit = self.network(obs_cat_action).squeeze(1)
             logit = logit.masked_fill(mask[n, :]==0, -1e8)
             prob = torch.softmax(logit, dim=-1)             # 에이전트 별 확률
             m = Categorical(prob)
@@ -229,43 +254,37 @@ class Agent:
         return action, probs,factorized_probs
 
 
-    def get_node_representation_gpo(self, node_feature, edge_index_obs,edge_index_comm,
-                                    mini_batch = False):
+    def get_node_representation_gpo(self, node_feature, edge_index_obs,edge_index_comm, n_agent, dead_masking, mini_batch = False):
         if mini_batch == False:
             with torch.no_grad():
                 node_feature = torch.tensor(node_feature, dtype=torch.float,device=device)
                 node_embedding_obs = self.node_representation(node_feature)
-                node_embedding_comm = self.node_representation_comm(node_feature)
+                node_embedding_comm = self.node_representation_comm(node_feature[:,:-1])
                 edge_index_obs = torch.tensor(edge_index_obs, dtype=torch.long, device=device)
                 edge_index_comm = torch.tensor(edge_index_comm, dtype=torch.long, device=device)
                 node_embedding_obs = self.func_obs(X = node_embedding_obs, A = edge_index_obs)
                 cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim = 1)
                 if cfg.given_edge == True:
-                    node_embedding = self.func_glcn(X=cat_embedding, A=edge_index_comm)
+                    node_embedding = self.func_glcn(X=cat_embedding[:n_agent, :], A=edge_index_comm)
+                    node_embedding = self.func_glcn2(X=node_embedding, A=edge_index_comm)
+
                     return node_embedding
                 else:
-                    node_embedding, A, X = self.func_glcn(X = cat_embedding, A = None)
+                    node_embedding, A, X = self.func_glcn(dead_masking= dead_masking, X = cat_embedding[:n_agent, :], A = None)
                     return node_embedding, A, X
         else:
             node_feature = torch.tensor(node_feature, dtype=torch.float, device=device)
             node_embedding_obs = self.node_representation(node_feature)
-            node_embedding_comm = self.node_representation_comm(node_feature)
-
+            node_embedding_comm = self.node_representation_comm(node_feature[:, :, :-1])
             node_embedding_obs = self.func_obs(X = node_embedding_obs, A = edge_index_obs, mini_batch = mini_batch)
-
             cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim=2)
-
             if cfg.given_edge == True:
-                node_embedding = self.func_glcn(X=cat_embedding, A=edge_index_comm, mini_batch=mini_batch)
+                node_embedding = self.func_glcn(X=cat_embedding[:, :n_agent, :], A=edge_index_comm, mini_batch=mini_batch)
+                node_embedding = self.func_glcn2(X=node_embedding , A=edge_index_comm, mini_batch=mini_batch)
                 return node_embedding
             else:
-                node_embedding, A, X, D = self.func_glcn(X = cat_embedding, A = None, mini_batch = mini_batch)
+                node_embedding, A, X, D = self.func_glcn(dead_masking= dead_masking, X = cat_embedding[:, :n_agent, :], A = None, mini_batch = mini_batch)
                 return node_embedding, A, X, D
-
-
-
-
-
 
 
     def put_data(self, transition):
@@ -280,6 +299,7 @@ class Agent:
         self.edge_index_comm_list.append(transition[8])
         self.factorize_pi_list.append(transition[9])
         self.dead_masking.append(transition[10])
+        self.state_list.append(transition[11])
 
         if transition[7] == True:
             batch_data = (
@@ -293,7 +313,8 @@ class Agent:
                 self.done_list,
                 self.edge_index_comm_list,
                 self.factorize_pi_list,
-                self.dead_masking
+                self.dead_masking,
+                self.state_list
                 )
 
             self.batch_store.append(batch_data) # batch_store에 저장함
@@ -308,6 +329,7 @@ class Agent:
             self.edge_index_comm_list = list()
             self.factorize_pi_list = list()
             self.dead_masking = list()
+            self.state_list = list()
 
 
     def make_batch(self, batch_data):
@@ -322,6 +344,7 @@ class Agent:
         edge_index_comm_list = batch_data[8]
         factorize_pi_list = batch_data[9]
         dead_masking = batch_data[10]
+        state_list = batch_data[11]
         factorize_pi_list = torch.tensor(factorize_pi_list, dtype = torch.float).to(device)
         dead_masking = torch.tensor(dead_masking, dtype=torch.float).to(device)
 
@@ -330,9 +353,10 @@ class Agent:
         edge_index_enemy_list = edge_index_enemy_list
         avail_action_list = torch.tensor(avail_action_list, dtype=torch.float).to(device)
         action_list = torch.tensor(action_list, dtype=torch.float).to(device)
+        state_list = torch.tensor(state_list, dtype=torch.float).to(device)
 
 
-        return node_features_list, edge_index_enemy_list, avail_action_list,action_list,prob_list,action_feature_list,reward_list,done_list, edge_index_comm_list, factorize_pi_list,dead_masking
+        return node_features_list, edge_index_enemy_list, avail_action_list,action_list,prob_list,action_feature_list,reward_list,done_list, edge_index_comm_list, factorize_pi_list,dead_masking,state_list
 
 
 
@@ -345,7 +369,11 @@ class Agent:
         cum_lap_quad = 0
         cum_sec_eig_upperbound = 0
 
+
         for i in range(self.K_epoch):
+            if i == 0:
+                v_s_old_list = list()
+                v_s_next_old_list = list()
             for l in range(len(self.batch_store)):
                 batch_data = self.batch_store[l]
                 node_features_list, \
@@ -356,159 +384,7 @@ class Agent:
                 action_feature_list,\
                 reward_list,\
                 done_list, \
-                edge_index_comm_list,  factorize_pi_list,dead_masking = self.make_batch(batch_data)
-        #
-        #         self.eval_check(eval=False)
-        #         action_feature = torch.tensor(action_feature_list, dtype= torch.float).to(device)
-        #         action_list = torch.tensor(action_list, dtype = torch.long).to(device)
-        #         mask = torch.tensor(avail_action_list, dtype= torch.float).to(device)
-        #         done = torch.tensor(done_list, dtype = torch.float).to(device)
-        #         reward = torch.tensor(reward_list, dtype= torch.float).to(device)
-        #         pi_old = torch.tensor(prob_list, dtype= torch.float).to(device)
-        #
-        #         num_nodes = node_features_list.shape[1]
-        #         num_agent = mask.shape[1]
-        #         num_action = action_feature.shape[1]
-        #         time_step = node_features_list.shape[0]
-        #         if cfg.given_edge == True:
-        #             node_embedding = self.get_node_representation_gpo(node_features_list,
-        #                                                               edge_index_enemy_list,
-        #                                                               edge_index_comm_list,
-        #                                                               mini_batch=True
-        #                                                               )
-        #
-        #         else:
-        #             node_embedding, A, X, _ = self.get_node_representation_gpo(
-        #                                                                     node_features_list,
-        #                                                                     edge_index_enemy_list,
-        #                                                                     edge_index_comm_list,
-        #                                                                     mini_batch=True
-        #                                                                     )
-        #
-        #
-        #
-        #         action_feature = action_feature.reshape(time_step*num_action, -1).to(device)
-        #         action_embedding = self.action_representation(action_feature)
-        #         action_embedding = action_embedding.reshape(time_step, num_action, -1)
-        #
-        #
-        #
-        #
-        #         node_embedding = node_embedding[:, :num_agent, :]
-        #         empty = torch.zeros(1, num_agent, node_embedding.shape[2]).to(device)
-        #         node_embedding_next = torch.cat((node_embedding, empty), dim = 0)[:-1, :, :]
-        #
-        #
-        #
-        #
-        #         v_s = self.network.v(node_embedding.reshape(num_agent*time_step,-1))
-        #         v_s = torch.mean(v_s.reshape(time_step, num_agent), dim = 1)
-        #         v_next = self.network.v(node_embedding_next.reshape(num_agent*time_step,-1))
-        #         v_next = torch.mean(v_next.reshape(time_step, num_agent), dim = 1)
-        #
-        #
-        #
-        #         for n in range(num_agent):
-        #             obs = node_embedding[:, n, :].unsqueeze(1).expand(time_step, num_action, node_embedding.shape[2])
-        #             obs_cat_action = torch.concat([obs, action_embedding], dim=2)
-        #             obs_cat_action = obs_cat_action.reshape(time_step*num_action, -1)
-        #             logit = self.network.pi(obs_cat_action).squeeze(1)
-        #             logit = logit.reshape(time_step, num_action, -1)
-        #             logit = logit.squeeze(-1).masked_fill(mask[:, n, :] == 0, -1e8)
-        #
-        #
-        #
-        #             prob = torch.softmax(logit, dim=-1)
-        #             actions = action_list[:, n].unsqueeze(1)
-        #             # print(prob.shape, actions.shape)
-        #             pi = prob.gather(1, actions)
-        #             if n == 0:
-        #                 pi_new = pi
-        #             else:
-        #                 pi_new *= pi
-        #
-        #
-        #         pi_new = pi_new.squeeze(1)
-        #         td_target = reward + self.gamma * v_next * (1-done)
-        #         delta = td_target - v_s
-        #         delta = delta.cpu().detach().numpy()
-        #         advantage_lst = []
-        #         advantage = 0.0
-        #         print(reward.shape, delta.shape, delta[: :-1].shape)
-        #         for delta_t in delta[: :-1]:
-        #             advantage = self.gamma * self.lmbda * advantage + delta_t
-        #             advantage_lst.append([advantage])
-        #         advantage_lst.reverse()
-        #         advantage = torch.tensor(advantage_lst, dtype=torch.float).to(device)
-        #         print(advantage.shape)
-        #         #print("dddd", pi_new.mean(), pi_old.mean())
-        #         ratio = torch.exp(torch.log(pi_new) - torch.log(pi_old).detach())  # a/b == exp(log(a)-log(b))
-        #         surr1 = ratio * (advantage.detach().squeeze())
-        #         surr2 = torch.clamp(ratio, 1 - self.eps_clip, 1 + self.eps_clip) * (advantage.detach().squeeze())
-        #
-        #
-        #
-        #         surr = torch.min(surr1, surr2).mean()
-        #         value_loss =  F.smooth_l1_loss(v_s, td_target.detach()).mean()
-        #
-        #
-        #
-        #         if cfg.given_edge == True:
-        #             loss = -surr + 0.05 * value_loss
-        #         else:
-        #             gamma1 = self.gamma1
-        #             gamma2 = self.gamma2
-        #             lap_quad, sec_eig_upperbound, L = get_graph_loss(X, A, num_nodes)
-        #             if cfg.softmax == True:
-        #                 loss = -surr + 0.05 * value_loss + gamma1 * lap_quad + gamma2 * gamma1 * frobenius_norm.mean()
-        #             else:
-        #                 loss = -surr + 0.05 * value_loss+  gamma1* lap_quad - gamma2 * gamma1 * sec_eig_upperbound
-        #
-        #
-        #     #print(np.array([np.linalg.eigh(L[t, :, :].cpu().detach().numpy())[0][1] for t in range(time_step)]))
-        #         if l == 0:
-        #             if cfg.given_edge == True:
-        #                 second_eigenvalue = 0
-        #             else:
-        #                 second_eigenvalue = np.mean(np.array([np.linalg.eigh(L[t, :, :].cpu().detach().numpy())[0][1]**2 for t in range(time_step)]))/cfg.n_data_parallelism
-        #             cum_loss = loss / self.n_data_parallelism
-        #         else:
-        #             if cfg.given_edge == True:
-        #                 second_eigenvalue = 0
-        #             else:
-        #                 second_eigenvalue += np.mean(np.array([np.linalg.eigh(L[t, :, :].cpu().detach().numpy())[0][1]**2 for t in range(time_step)]))/cfg.n_data_parallelism
-        #             cum_loss = cum_loss + loss / self.n_data_parallelism
-        #
-        #
-        #         if l == 0:
-        #             cum_surr               += surr.tolist() / (self.n_data_parallelism * self.K_epoch)
-        #             cum_value_loss         += value_loss.tolist() / (self.n_data_parallelism * self.K_epoch)
-        #             if cfg.given_edge == True:
-        #                 cum_lap_quad =0
-        #                 cum_sec_eig_upperbound =0
-        #             else:
-        #                 cum_lap_quad           += lap_quad.tolist() / (self.n_data_parallelism * self.K_epoch)
-        #                 cum_sec_eig_upperbound += sec_eig_upperbound.tolist()  / (self.n_data_parallelism * self.K_epoch)
-        #         else:
-        #             cum_surr       += surr.tolist() / (self.n_data_parallelism * self.K_epoch)
-        #             cum_value_loss += value_loss.tolist() / (self.n_data_parallelism * self.K_epoch)
-        #             if cfg.given_edge == True:pass
-        #             else:
-        #                 cum_lap_quad += lap_quad.tolist() / (self.n_data_parallelism * self.K_epoch)
-        #                 cum_sec_eig_upperbound += sec_eig_upperbound.tolist() / (self.n_data_parallelism * self.K_epoch)
-        #
-        #     grad_clip = float(os.environ.get("grad_clip", 10))
-        #     cum_loss.backward()
-        #     torch.nn.utils.clip_grad_norm_(self.eval_params, grad_clip)
-        #     self.optimizer1.step()
-        #     self.optimizer1.zero_grad()
-        #     if l == 0:
-        #         print(second_eigenvalue)
-        #
-        #
-        # self.batch_store = list()
-        # return cum_surr, cum_value_loss, cum_lap_quad, cum_sec_eig_upperbound, second_eigenvalue
-        #
+                edge_index_comm_list,  factorize_pi_list, dead_masking, state_list = self.make_batch(batch_data)
                 self.eval_check(eval=False)
                 action_feature = torch.tensor(action_feature_list, dtype= torch.float).to(device)
                 action_list = torch.tensor(action_list, dtype = torch.long).to(device)
@@ -526,7 +402,9 @@ class Agent:
                     node_embedding = self.get_node_representation_gpo(node_features_list,
                                                                       edge_index_enemy_list,
                                                                       edge_index_comm_list,
-                                                                      mini_batch=True
+                                                                      mini_batch=True,
+                                                                      dead_masking=dead_masking,
+                                                                      n_agent = num_agent
                                                                       )
 
                 else:
@@ -534,7 +412,9 @@ class Agent:
                                                                             node_features_list,
                                                                             edge_index_enemy_list,
                                                                             edge_index_comm_list,
-                                                                            mini_batch=True
+                                                                            dead_masking = dead_masking,
+                                                                            mini_batch=True,
+                                                                            n_agent=num_agent
                                                                             )
 
 
@@ -553,11 +433,17 @@ class Agent:
 
 
 
-                v_s = self.network.v(node_embedding.reshape(num_agent*time_step,-1))
+
+                v_s = self.valuenetwork(node_embedding.reshape(num_agent*time_step,-1))
                 v_s = v_s.reshape(time_step, num_agent)
-                v_next = self.network.v(node_embedding_next.reshape(num_agent*time_step,-1))
+                v_next = self.valuenetwork(node_embedding_next.reshape(num_agent*time_step,-1))
                 v_next = v_next.reshape(time_step, num_agent)
+                if i == 0:
+                    v_s_old_list.append(v_s)
+                    v_s_next_old_list.append(v_next)
+
                 done =  done.unsqueeze(1).repeat(1, num_agent)
+
                 reward =  reward.unsqueeze(1).repeat(1, num_agent)
                 td_target = reward + self.gamma * v_next * (1-done)
                 delta = td_target - v_s
@@ -571,58 +457,50 @@ class Agent:
                 advantage = torch.stack(advantage_lst).to(device)
 
                 for n in range(num_agent):
-                    obs = node_embedding[:, n, :].unsqueeze(1).expand(time_step, num_action, node_embedding.shape[2])
+                    obs = node_embedding[:, n, :].unsqueeze(1).expand(time_step,  num_action, node_embedding.shape[2])
                     obs_cat_action = torch.concat([obs, action_embedding], dim=2)
                     obs_cat_action = obs_cat_action.reshape(time_step*num_action, -1)
-                    logit = self.network.pi(obs_cat_action).squeeze(1)
+                    logit = self.network(obs_cat_action).squeeze(1)
                     logit = logit.reshape(time_step, num_action, -1)
                     logit = logit.squeeze(-1).masked_fill(mask[:, n, :] == 0, -1e8)
                     prob = torch.softmax(logit, dim=-1)
                     actions = action_list[:, n].unsqueeze(1)
-
                     pi = prob.gather(1, actions)
                     pi_old = factorize_pi_old[:,n].unsqueeze(1)
-                    advantage_i = advantage[:, i].unsqueeze(1)
+                    advantage_i = advantage[:, n].unsqueeze(1)
                     ratio = torch.exp(torch.log(pi) - torch.log(pi_old).detach())  # a/b == exp(log(a)-log(b))
                     surr1 = ratio * (advantage_i.detach().squeeze())
                     surr2 = torch.clamp(ratio, 1 - self.eps_clip, 1 + self.eps_clip) * (advantage_i.detach().squeeze())
                     entropy = -(pi * torch.log(pi)).sum(1).mean()
-                    #print(torch.min(surr1, surr2).mean(), entropy.mean()/num_agent)
+
+                    val_surr1 = v_s[:, n]
+                    val_surr2 = torch.clamp(v_s[:, n], v_s_old_list[l][:, n].detach() - self.eps_clip,v_s_old_list[l][:, n].detach() + self.eps_clip)
+
                     if n == 0:
                         surr = torch.min(surr1, surr2).mean()/num_agent+0.01*entropy.mean()/num_agent
+                        value_loss = torch.max(F.smooth_l1_loss(val_surr1, td_target.detach()[:, n]),F.smooth_l1_loss(val_surr2, td_target.detach()[:, n])).mean()/ num_agent
                     else:
                         surr+= torch.min(surr1, surr2).mean()/num_agent+0.01*entropy.mean()/num_agent
-
-                value_loss =  F.smooth_l1_loss(v_s, td_target.detach()).mean()
-
-
+                        value_loss += torch.max(F.smooth_l1_loss(val_surr1, td_target.detach()[:, n]),
+                                               F.smooth_l1_loss(val_surr2, td_target.detach()[:, n])).mean() / num_agent
 
                 if cfg.given_edge == True:
-                    loss = -surr + 0.05 * value_loss
+                    loss = -surr + 0.5 * value_loss
                 else:
                     gamma1 = self.gamma1
                     gamma2 = self.gamma2
                     lap_quad, sec_eig_upperbound, L = get_graph_loss(X, A, num_nodes)
                     if cfg.softmax == True:
-                        loss = -surr + 0.1 * value_loss + gamma1 * lap_quad + gamma2 * gamma1 * frobenius_norm.mean()
+                        loss = -surr + 0.5 * value_loss + gamma1 * lap_quad + gamma2 * gamma1 * frobenius_norm.mean()
                     else:
-                        loss = -surr + 0.1 * value_loss+  gamma1* lap_quad - gamma2 * gamma1 * sec_eig_upperbound
+                        loss = -surr + 0.5 * value_loss+  gamma1* lap_quad - gamma2 * gamma1 * sec_eig_upperbound
 
 
             #print(np.array([np.linalg.eigh(L[t, :, :].cpu().detach().numpy())[0][1] for t in range(time_step)]))
                 if l == 0:
-                    if cfg.given_edge == True:
-                        second_eigenvalue = 0
-                    else:
-                        second_eigenvalue = np.mean(np.array([np.linalg.eigh(L[t, :, :].cpu().detach().numpy())[0][1]**2 for t in range(time_step)]))/cfg.n_data_parallelism
                     cum_loss = loss / self.n_data_parallelism
                 else:
-                    if cfg.given_edge == True:
-                        second_eigenvalue = 0
-                    else:
-                        second_eigenvalue += np.mean(np.array([np.linalg.eigh(L[t, :, :].cpu().detach().numpy())[0][1]**2 for t in range(time_step)]))/cfg.n_data_parallelism
                     cum_loss = cum_loss + loss / self.n_data_parallelism
-
 
                 if l == 0:
                     cum_surr               += surr.tolist() / (self.n_data_parallelism * self.K_epoch)
@@ -646,12 +524,15 @@ class Agent:
             torch.nn.utils.clip_grad_norm_(self.eval_params, grad_clip)
             self.optimizer1.step()
             self.optimizer1.zero_grad()
-            if l == 0:
-                print(second_eigenvalue)
+            # if l == 0:
+            #     print(second_eigenvalue)
 
 
         self.batch_store = list()
-        return cum_surr, cum_value_loss, cum_lap_quad, cum_sec_eig_upperbound, second_eigenvalue
+        if cfg.given_edge== True:
+            return cum_surr, cum_value_loss, 0, 0, 0  # second_eigenvalue
+        else:
+            return cum_surr, cum_value_loss, cum_lap_quad, cum_sec_eig_upperbound, _  # second_eigenvalue
 
     # def load_network(self, file_dir):
     #     print(file_dir)

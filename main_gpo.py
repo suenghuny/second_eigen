@@ -59,12 +59,13 @@ def evaluation(env, agent):
         step = 0
         while (not done) and (step < max_episode_len):
             node_feature, edge_index_enemy, edge_index_comm, _, dead_masking = env.get_heterogeneous_graph(heterogeneous=heterogenous)
-            if cfg.given_edge == True:
-                node_embedding = agent.get_node_representation_gpo(node_feature, edge_index_enemy, edge_index_comm)
-            else:
-                node_embedding, _, _ = agent.get_node_representation_gpo(node_feature, edge_index_enemy,
-                                                                         edge_index_comm)
             avail_action = env.get_avail_actions()
+            n_agent = len(avail_action)
+            if cfg.given_edge == True:
+                node_embedding = agent.get_node_representation_gpo(node_feature, edge_index_enemy, edge_index_comm, n_agent = n_agent, dead_masking = dead_masking)
+            else:
+                node_embedding, _, _ = agent.get_node_representation_gpo(node_feature, edge_index_enemy, edge_index_comm, n_agent = n_agent, dead_masking = dead_masking)
+
             action_feature = env.get_action_feature()  # 차원 : action_size X n_action_feature
             agent.eval_check(eval=True)
             action, prob,_ = agent.sample_action(node_embedding, action_feature, avail_action,
@@ -97,11 +98,14 @@ def train(agent, env, e, t, monitor, params):
 
     while (not done) and (step < max_episode_limit):
         node_feature, edge_index_enemy, edge_index_comm, _, dead_masking = env.get_heterogeneous_graph(heterogeneous=heterogenous)
-        if cfg.given_edge == True:
-            node_embedding = agent.get_node_representation_gpo(node_feature, edge_index_enemy, edge_index_comm)
-        else:
-            node_embedding, _, _ = agent.get_node_representation_gpo(node_feature, edge_index_enemy, edge_index_comm)
         avail_action = env.get_avail_actions()
+        state = env.get_state()
+        n_agent = len(avail_action)
+        if cfg.given_edge == True:
+            node_embedding = agent.get_node_representation_gpo(node_feature, edge_index_enemy, edge_index_comm, n_agent = n_agent, dead_masking = dead_masking)
+        else:
+            node_embedding, _, _ = agent.get_node_representation_gpo(node_feature, edge_index_enemy, edge_index_comm, n_agent = n_agent, dead_masking = dead_masking)
+
         action_feature = env.get_action_feature()  # 차원 : action_size X n_action_feature
         agent.eval_check(eval=True)
         action, prob, factorized_probs = agent.sample_action(node_embedding, action_feature, avail_action, num_agent = env.get_env_info()["n_agents"])
@@ -117,7 +121,8 @@ def train(agent, env, e, t, monitor, params):
                       done,
                       edge_index_comm,
                       factorized_probs,
-                      dead_masking
+                      dead_masking,
+                      state
                       )
         agent.put_data(transition)
         episode_reward += reward
@@ -170,18 +175,17 @@ def main():
             "n_representation_action": int(os.environ.get("n_representation_action", 64)),
             "graph_embedding": int(os.environ.get("graph_embedding", 56)),
             "graph_embedding_comm": int(os.environ.get("graph_embedding_comm", 64)),
-            "learning_rate": cfg.lr,
+            "learning_rate": float(os.environ.get("learning_rate", 5e-4)),
             "learning_rate_graph": float(os.environ.get("learning_rate_graph", 0.0005387456623850075)),
-            "gamma1": float(os.environ.get("gamma1", 0.1)),
-            "gamma2": float(os.environ.get("gamma2", 1e-3)),
+            "gamma1": float(os.environ.get("gamma1", 0.001)),
+            "gamma2": float(os.environ.get("gamma2", 20)),
             "n_data_parallelism": int(os.environ.get("n_data_parallelism", 5)),
-
 
             "gamma": cfg.gamma,
             "ppo_layers": cfg.ppo_layers,
             "lmbda": cfg.lmbda,
             "eps_clip": cfg.eps_clip,
-            "K_epoch": cfg.K_epoch,
+            "K_epoch": int(os.environ.get("K_epoch", 10)),
             "layers": cfg.ppo_layers,
             "feature_size": env.get_env_info()["node_features"],
             "action_size": env.get_env_info()["n_actions"],

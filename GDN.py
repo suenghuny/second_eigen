@@ -33,6 +33,7 @@ class Network(nn.Module):
     def __init__(self, obs_and_action_size, hidden_size_q):
         super(Network, self).__init__()
         self.obs_and_action_size = obs_and_action_size
+        print(obs_and_action_size, hidden_size_q)
         self.fcn_1 = nn.Linear(obs_and_action_size, hidden_size_q)
         self.fcn_2 = nn.Linear(hidden_size_q, int(hidden_size_q/2))
         self.fcn_3 = nn.Linear(int(hidden_size_q/2), int(hidden_size_q/4))
@@ -76,7 +77,7 @@ class Replay_Buffer:
 
 
         self.step_count_list = list()
-        for _ in range(8):
+        for _ in range(9):
             self.buffer.append(deque(maxlen=buffer_size))
         self.buffer_size = buffer_size
         self.num_agent = num_agent
@@ -88,7 +89,7 @@ class Replay_Buffer:
     def pop(self):
         self.buffer.pop()
 
-    def memory(self, node_feature, action, action_feature, edge_index_enemy, edge_index_ally, reward, done, avail_action):
+    def memory(self, node_feature, action, action_feature, edge_index_enemy, edge_index_ally, reward, done, avail_action, dead_masking):
         self.buffer[0].append(node_feature)
         self.buffer[1].append(action)
         self.buffer[2].append(action_feature)
@@ -97,7 +98,7 @@ class Replay_Buffer:
         self.buffer[5].append(reward)
         self.buffer[6].append(done)
         self.buffer[7].append(avail_action)
-
+        self.buffer[8].append(dead_masking)
         if self.step_count < self.buffer_size - 1:
             self.step_count_list.append(self.step_count)
             self.step_count += 1
@@ -127,6 +128,9 @@ class Replay_Buffer:
                 yield datas[4][s+1]
             if cat == 'avail_action_next':
                 yield datas[7][s+1]
+
+            if cat == 'dead_masking':
+                yield datas[8][s]
 
 
 
@@ -174,7 +178,11 @@ class Replay_Buffer:
         edge_indices_ally_next = list(edge_index_ally_next)
         avail_action_next = self.generating_mini_batch(self.buffer, sampled_batch_idx, cat='avail_action_next')
         avail_actions_next = list(avail_action_next)
-        return node_features, actions, action_features, edge_indices_enemy, edge_indices_ally, rewards, dones, node_features_next, action_features_next, edge_indices_enemy_next, edge_indices_ally_next, avail_actions_next
+
+        dead_masking = self.generating_mini_batch(self.buffer, sampled_batch_idx, cat='dead_masking')
+        dead_masking = list(dead_masking)
+
+        return node_features, actions, action_features, edge_indices_enemy, edge_indices_ally, rewards, dones, node_features_next, action_features_next, edge_indices_enemy_next, edge_indices_ally_next, avail_actions_next,dead_masking
 
 class Agent:
     def __init__(self,
@@ -273,6 +281,8 @@ class Agent:
         if cfg.given_edge == True:
             self.func_glcn = GLCN(feature_size=self.graph_embedding+self.n_representation_comm,
                                   graph_embedding_size=self.graph_embedding_comm, link_prediction = False).to(device)
+            self.func_glcn2 = GLCN(feature_size=self.graph_embedding + self.n_representation_comm,
+                                  graph_embedding_size=self.graph_embedding_comm, link_prediction=False).to(device)
         else:
             self.func_glcn = GLCN(feature_size=self.graph_embedding+self.n_representation_comm,
                                   feature_obs_size=self.graph_embedding,
@@ -283,14 +293,23 @@ class Agent:
         self.Q_tar = Network(self.graph_embedding_comm + self.n_representation_action, hidden_size_Q).to(device)
         self.Q_tar.load_state_dict(self.Q.state_dict())
 
-
-        self.eval_params = list(self.VDN.parameters()) + \
-                           list(self.Q.parameters()) + \
-                           list(self.node_representation.parameters()) + \
-                           list(self.node_representation_comm.parameters()) + \
-                           list(self.func_obs.parameters()) + \
-                           list(self.func_glcn.parameters()) + \
-                           list(self.action_representation.parameters())
+        if cfg.given_edge == True:
+            self.eval_params = list(self.VDN.parameters()) + \
+                               list(self.Q.parameters()) + \
+                               list(self.node_representation.parameters()) + \
+                               list(self.node_representation_comm.parameters()) + \
+                               list(self.func_obs.parameters()) + \
+                               list(self.func_glcn.parameters()) + \
+                               list(self.func_glcn2.parameters()) + \
+                               list(self.action_representation.parameters())
+        else:
+            self.eval_params = list(self.VDN.parameters()) + \
+                               list(self.Q.parameters()) + \
+                               list(self.node_representation.parameters()) + \
+                               list(self.node_representation_comm.parameters()) + \
+                               list(self.func_obs.parameters()) + \
+                               list(self.func_glcn.parameters()) + \
+                               list(self.action_representation.parameters())
 
         #self.graph_params = list(self.func_glcn.parameters())
 
@@ -325,7 +344,9 @@ class Agent:
         self = torch.load(path)
 
 
-    def get_node_representation_temp(self, node_feature, edge_index_obs,edge_index_comm, mini_batch = False):
+    def get_node_representation_temp(self, node_feature, edge_index_obs,edge_index_comm, n_agent,
+                                     dead_masking,
+                                     mini_batch = False):
         if mini_batch == False:
             with torch.no_grad():
                 node_feature = torch.tensor(node_feature, dtype=torch.float,device=device)
@@ -340,11 +361,11 @@ class Agent:
                 cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim = 1)
 
                 if cfg.given_edge == True:
-                    node_embedding = self.func_glcn(X=cat_embedding, A=edge_index_comm)
+                    node_embedding = self.func_glcn(X=cat_embedding[:n_agent,:], dead_masking= dead_masking, A=edge_index_comm)
                     return node_embedding
 
                 else:
-                    node_embedding, A, X = self.func_glcn(X = cat_embedding, A = None)
+                    node_embedding, A, X = self.func_glcn(X = cat_embedding, dead_masking= dead_masking, A = None)
                     return node_embedding, A, X
         else:
             node_feature = torch.tensor(node_feature, dtype=torch.float, device=device)
@@ -356,10 +377,12 @@ class Agent:
             cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim=2)
 
             if cfg.given_edge == True:
-                node_embedding = self.func_glcn(X=cat_embedding, A=edge_index_comm, mini_batch=mini_batch)
+                node_embedding = self.func_glcn(X=cat_embedding, A=edge_index_comm, dead_masking= dead_masking, mini_batch=mini_batch)
                 return node_embedding
             else:
-                node_embedding, A, X, D = self.func_glcn(X = cat_embedding, A = None, mini_batch = mini_batch)
+                #print("전", cat_embedding.shape,cat_embedding[:, :n_agent,:].shape)
+                node_embedding, A, X, D = self.func_glcn(X = cat_embedding[:, :n_agent,:], dead_masking= dead_masking, A = None, mini_batch = mini_batch)
+
                 return node_embedding, A, X, D
 
 
@@ -444,7 +467,7 @@ class Agent:
 
 
     def learn(self, e):
-        node_features, actions, action_features, edge_indices_enemy, edge_indices_ally, rewards, dones, node_features_next, action_features_next, edge_indices_enemy_next, edge_indices_ally_next, avail_actions_next = self.buffer.sample()
+        node_features, actions, action_features, edge_indices_enemy, edge_indices_ally, rewards, dones, node_features_next, action_features_next, edge_indices_enemy_next, edge_indices_ally_next, avail_actions_next,dead_masking = self.buffer.sample()
 
         """
         node_features : batch_size x num_nodes x feature_size
@@ -455,16 +478,26 @@ class Agent:
         # print(torch.tensor(action_features).shape)
         # print(torch.tensor(avail_actions_next).shape)
         num_nodes = torch.tensor(node_features).shape[1]
+        n_agent = torch.tensor(avail_actions_next).shape[1]
 
         if cfg.given_edge == True:
             obs = self.get_node_representation_temp(node_features, edge_indices_enemy, edge_indices_ally,
+                                                    n_agent = n_agent,
+                                                    dead_masking = dead_masking,
                                                     mini_batch=True)
-            obs_next = self.get_node_representation_temp(node_features_next, edge_indices_enemy_next, edge_indices_ally_next,mini_batch=True)
+            obs_next = self.get_node_representation_temp(node_features_next, edge_indices_enemy_next, edge_indices_ally_next,
+                                                         n_agent=n_agent,
+                                                         dead_masking=dead_masking,
+                                                         mini_batch=True)
         else:
             obs, A, X, D = self.get_node_representation_temp(node_features, edge_indices_enemy, edge_indices_ally,
-                                                    mini_batch=True)
-            obs_next, _, _, _ = self.get_node_representation_temp(node_features_next, edge_indices_enemy_next, edge_indices_ally_next, mini_batch=True)
-
+                                                             n_agent=n_agent,
+                                                             dead_masking=dead_masking,
+                                                             mini_batch=True)
+            obs_next, _, _, _ = self.get_node_representation_temp(node_features_next, edge_indices_enemy_next, edge_indices_ally_next,
+                                                                  n_agent=n_agent,
+                                                                  dead_masking=dead_masking,
+                                                                  mini_batch=True)
             gamma1 = self.gamma1
             gamma2 = self.gamma2
             lap_quad, sec_eig_upperbound, L = get_graph_loss(X, A, num_nodes, e, self.anneal_episodes_graph_variance,self.min_graph_variance)
@@ -488,14 +521,13 @@ class Agent:
                              target=True) for agent_id in range(self.num_agent)]
 
         q_tot = torch.stack(q, dim=1)
-
         q_tot_tar = torch.stack(q_tar, dim=1)
         q_tot = self.VDN(q_tot)
         q_tot_tar = self.VDN_target(q_tot_tar)
         td_target = rewards*self.num_agent + self.gamma* (1-dones)*q_tot_tar
 
         if cfg.given_edge == True:
-            rl_loss = F.mse_loss(q_tot, td_target.detach()) #+ gamma1* lap_quad - gamma2 * gamma1 * sec_eig_upperbound
+            rl_loss = F.mse_loss(q_tot, td_target.detach())
             loss = rl_loss
         else:
             rl_loss = F.mse_loss(q_tot, td_target.detach())
@@ -506,15 +538,6 @@ class Agent:
         torch.nn.utils.clip_grad_norm_(self.eval_params, 10)
         self.optimizer.step()
         self.optimizer.zero_grad()
-
-
-
-
-        # # graph_loss에 대한 역전파
-        # graph_loss.backward()
-        # torch.nn.utils.clip_grad_norm_(self.graph_params, 10)
-        # self.optimizer_graph.step()
-        # self.optimizer_graph.zero_grad()
 
 
         tau = 1e-3
