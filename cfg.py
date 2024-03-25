@@ -34,7 +34,7 @@ def get_cfg():
     parser.add_argument("--sweep", type=bool, default=True, help="")
     parser.add_argument("--given_edge", type=bool, default=False, help="")
     parser.add_argument("--num_episode", type=int, default=1000000, help="number of episode")
-    # "hidden_size_obs": cfg.hidden_size_obs,
+    # "hidden_size_obs": cfg.hidden_size_obs,#
     # "hidden_size_action": cfg.hidden_size_action,
     # "n_representation_obs": cfg.n_representation_obs,
     # "n_representation_action": cfg.n_representation_action,
