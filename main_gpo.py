@@ -167,15 +167,15 @@ def main():
     env.generate_num_unit_types(num_unit_types, unit_type_ids)
     if cfg.sweep == True:
         params = {
-            "hidden_size_obs": int(os.environ.get("hidden_size_obs", 52)),
-            "hidden_size_comm": int(os.environ.get("hidden_size_comm", 56)),
-            "hidden_size_action": int(os.environ.get("hidden_size_action", 52)),
+            "hidden_size_obs": int(os.environ.get("hidden_size_obs", 64)),
+            "hidden_size_comm": int(os.environ.get("hidden_size_comm", 128)),
+            "hidden_size_action": int(os.environ.get("hidden_size_action", 96)),
             "n_representation_obs": int(os.environ.get("n_representation_obs", 36)),
             "n_representation_comm": int(os.environ.get("n_representation_comm", 72)),
             "n_representation_action": int(os.environ.get("n_representation_action", 64)),
             "graph_embedding": int(os.environ.get("graph_embedding", 56)),
             "graph_embedding_comm": int(os.environ.get("graph_embedding_comm", 64)),
-            "learning_rate": float(os.environ.get("learning_rate", 5e-4)),
+            "learning_rate": float(os.environ.get("learning_rate", 3e-4)),
             "learning_rate_graph": float(os.environ.get("learning_rate_graph", 0.0005387456623850075)),
             "gamma1": float(os.environ.get("gamma1", 0.001)),
             "gamma2": float(os.environ.get("gamma2", 20)),

@@ -18,14 +18,13 @@ baneling : 30.00.00.375
 spine crawler : 300.00.01.125`
 """
 def get_graph_loss(X, A, num_nodes, e = False, anneal_episodes_graph_variance = False, min_graph_variance = False):
+
+    num_nodes = A.shape[1]
     X_i = X.unsqueeze(2)
     X_j = X.unsqueeze(1)
     euclidean_distance = torch.sum((X_i - X_j) ** 2, dim=3).detach()
     laplacian_quadratic = torch.sum(euclidean_distance * A, dim=(1, 2))
     frobenius_norm = (torch.norm(A, p='fro', dim=(1, 2), keepdim=True) ** 2).squeeze(-1).squeeze(-1)
-    # print(A.shape)
-    # #print(torch.sum(A**2, dim=(1,2)))
-    # print(torch.max(torch.sum(torch.sum(A**2, dim=2),dim=1)), torch.max(frobenius_norm))
     var = torch.mean(torch.var(A, dim=2), dim=1)
     #print(var.shape)
     D = torch.zeros_like(A)
@@ -33,9 +32,8 @@ def get_graph_loss(X, A, num_nodes, e = False, anneal_episodes_graph_variance = 
         D[i] = torch.diag(A[i].sum(1))
 
     L = D-A
-    #print(A[0])
-    #sec_eig = np.mean([np.linalg.eigh(L[G, :, :].detach().cpu().numpy())[0][1] for G in range(L.shape[0])])
-    #print(sec_eig)
+
+    # print(frobenius_norm - num_nodes ** 2 * var)
     if anneal_episodes_graph_variance != False:
         lap_quad = laplacian_quadratic.mean()
         sec_eig_upperbound = (num_nodes / (num_nodes - 1)) ** 2 * (frobenius_norm - num_nodes ** 2 * var).mean()
