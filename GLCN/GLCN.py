@@ -136,10 +136,8 @@ class GLCN(nn.Module):
 
 
     def _prepare_attentional_mechanism_input(self, Wq, Wv, k = None):
-        #print(k, k == False)
         if k == None:
             Wh1 = Wq
-
             Wh1 = torch.matmul(Wh1, self.a[:self.graph_embedding_size, : ])
             Wh2 = Wv
             Wh2 = torch.matmul(Wh2, self.a[self.graph_embedding_size:, :])
@@ -167,7 +165,7 @@ class GLCN(nn.Module):
                 zero_vec = -9e15 * torch.ones_like(E)
                 a = torch.where(E > 0, a, zero_vec)
                 a = F.softmax(a, dim = 1)
-                H = torch.matmul(a, Wh)
+                H = F.relu(torch.matmul(a, Wh))
                 #print("뒹벳",H)
             else:
                 batch_size = X.shape[0]
@@ -184,7 +182,7 @@ class GLCN(nn.Module):
                     zero_vec = -9e15 * torch.ones_like(E)
                     a = torch.where(E > 0, a, zero_vec)
                     a = F.softmax(a, dim = 1)
-                    H = torch.matmul(a, Wh)
+                    H = F.relu(torch.matmul(a, Wh))
                     H_placeholder.append(H)
                 H = torch.stack(H_placeholder)
 
@@ -202,7 +200,7 @@ class GLCN(nn.Module):
                         zero_vec = -9e15 * torch.ones_like(A)
                         a = torch.where(A > 0, a, zero_vec)
                         a = F.softmax(a, dim=1)
-                        H = torch.matmul(a, Wh)
+                        H = F.relu(torch.matmul(a, Wh))
                 else:
                     I = torch.eye(A.size(0)).to(device)
                     A_hat = A + I
@@ -216,8 +214,9 @@ class GLCN(nn.Module):
                         else:
                             support = torch.mm(H, self.W[k])
                             output = torch.mm(torch.mm(D_hat_inv_sqrt, A_hat), D_hat_inv_sqrt)
-                        H = torch.mm(output, support)
-                return F.relu(H), A, X
+                        H = F.relu(torch.mm(output, support))
+
+                return H, A, X
             else:
                 num_nodes = X.shape[1]
                 batch_size = X.shape[0]
@@ -242,7 +241,7 @@ class GLCN(nn.Module):
                             zero_vec = -9e15 * torch.ones_like(A)
                             a = torch.where(A > 0, a, zero_vec)
                             a = F.softmax(a, dim=1)
-                            H = torch.matmul(a, Wh)
+                            H = F.relu(torch.matmul(a, Wh))
                             if k+1 == self.k_hop:
                                 H_placeholder.append(H)
                     else:
@@ -254,15 +253,15 @@ class GLCN(nn.Module):
                             if k == 0:
                                 support = torch.mm(X[b], self.W[k])
                                 output = torch.mm(torch.mm(D_hat_inv_sqrt, A_hat), D_hat_inv_sqrt)
-                                H = torch.mm(output, support)
+                                H = F.relu(torch.mm(output, support))
                             else:
                                 support = torch.mm(H, self.W[k])
                                 output = torch.mm(torch.mm(D_hat_inv_sqrt, A_hat), D_hat_inv_sqrt)
-                                H = torch.mm(output.detach(), support)
+                                H = F.relu(torch.mm(output.detach(), support))
                             if k+1 == self.k_hop:
                                 H_placeholder.append(H)
                 H = torch.stack(H_placeholder)
                 A = torch.stack(A_placeholder)
                 D = torch.stack(D_placeholder)
-                return F.relu(H), A, X, D
+                return H, A, X, D
 

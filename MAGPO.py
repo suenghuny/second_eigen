@@ -188,8 +188,7 @@ class Agent:
                                list(self.node_representation_comm.parameters()) + \
                                list(self.action_representation.parameters()) + \
                                list(self.func_obs.parameters()) + \
-                               list(self.func_glcn.parameters()) + \
-                               list(self.func_glcn2.parameters())
+                               list(self.func_glcn.parameters())
 
         if cfg.optimizer == 'ADAM':
             self.optimizer1 = optim.Adam(self.eval_params, lr=self.learning_rate)  #
@@ -251,7 +250,7 @@ class Agent:
             probs.append(prob[u].item())
         factorized_probs = probs[:]
         probs = torch.exp(torch.sum(torch.log(torch.tensor(probs))))
-        return action, probs,factorized_probs
+        return action, probs, factorized_probs
 
 
     def get_node_representation_gpo(self, node_feature, edge_index_obs,edge_index_comm, n_agent, dead_masking, mini_batch = False):
@@ -473,16 +472,17 @@ class Agent:
                     surr2 = torch.clamp(ratio, 1 - self.eps_clip, 1 + self.eps_clip) * (advantage_i.detach().squeeze())
                     entropy = -(pi * torch.log(pi)).sum(1).mean()
 
-                    val_surr1 = v_s[:, n]
-                    val_surr2 = torch.clamp(v_s[:, n], v_s_old_list[l][:, n].detach() - self.eps_clip,v_s_old_list[l][:, n].detach() + self.eps_clip)
+
 
                     if n == 0:
                         surr = torch.min(surr1, surr2).mean()/num_agent+0.01*entropy.mean()/num_agent
-                        value_loss = torch.max(F.smooth_l1_loss(val_surr1, td_target.detach()[:, n]),F.smooth_l1_loss(val_surr2, td_target.detach()[:, n])).mean()/ num_agent
+
                     else:
                         surr+= torch.min(surr1, surr2).mean()/num_agent+0.01*entropy.mean()/num_agent
-                        value_loss += torch.max(F.smooth_l1_loss(val_surr1, td_target.detach()[:, n]),
-                                               F.smooth_l1_loss(val_surr2, td_target.detach()[:, n])).mean() / num_agent
+
+                val_surr1 = v_s
+                val_surr2 = torch.clamp(v_s, v_s_old_list[l].detach() - self.eps_clip,v_s_old_list[l].detach() + self.eps_clip)
+                value_loss = torch.max(F.smooth_l1_loss(val_surr1, td_target.detach()), F.smooth_l1_loss(val_surr2, td_target.detach())).mean()
 
                 if cfg.given_edge == True:
                     loss = -surr + 0.5 * value_loss
