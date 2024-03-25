@@ -159,17 +159,17 @@ class Agent:
         if cfg.given_edge == True:
             self.func_glcn = GLCN(feature_size=self.graph_embedding+self.n_representation_comm,
                                 graph_embedding_size=self.graph_embedding_comm, link_prediction = False).to(device)
-            self.func_glcn2 = GLCN(feature_size=self.graph_embedding_comm,graph_embedding_size=self.graph_embedding_comm+20, link_prediction=False).to(device)
+            self.func_glcn2 = GLCN(feature_size=self.graph_embedding_comm,graph_embedding_size=self.graph_embedding_comm, link_prediction=False).to(device)
         else:
             self.func_glcn = GLCN(feature_size=self.graph_embedding+self.n_representation_comm,
                                   feature_obs_size=self.graph_embedding,
                                 graph_embedding_size=self.graph_embedding_comm, link_prediction = True).to(device)
 
-        self.network = PPONetwork(state_size=self.graph_embedding_comm+20,
-                                  state_action_size=self.graph_embedding_comm+20 + self.n_representation_action,
+        self.network = PPONetwork(state_size=self.graph_embedding_comm,
+                                  state_action_size=self.graph_embedding_comm + self.n_representation_action,
                                   layers=self.layers).to(device)
-        self.valuenetwork = ValueNetwork(state_size=self.graph_embedding_comm+20,
-                                  state_action_size=self.graph_embedding_comm+20 + self.n_representation_action,
+        self.valuenetwork = ValueNetwork(state_size=self.graph_embedding_comm,
+                                  state_action_size=self.graph_embedding_comm + self.n_representation_action,
                                   layers=self.layers).to(device)
 
         if cfg.given_edge == True:
@@ -475,10 +475,10 @@ class Agent:
 
 
                     if n == 0:
-                        surr = torch.min(surr1, surr2).mean()/num_agent+0.01*entropy.mean()/num_agent
+                        surr = torch.min(surr1, surr2).mean()/num_agent#+0.01*entropy.mean()/num_agent
 
                     else:
-                        surr+= torch.min(surr1, surr2).mean()/num_agent+0.01*entropy.mean()/num_agent
+                        surr+= torch.min(surr1, surr2).mean()/num_agent#+0.01*entropy.mean()/num_agent
 
                 val_surr1 = v_s
                 val_surr2 = torch.clamp(v_s, v_s_old_list[l].detach() - self.eps_clip,v_s_old_list[l].detach() + self.eps_clip)
