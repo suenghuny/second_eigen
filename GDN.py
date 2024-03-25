@@ -539,11 +539,14 @@ class Agent:
         self.optimizer.zero_grad()
 
 
-        tau = 1e-3
-        for target_param, local_param in zip(self.Q_tar.parameters(), self.Q.parameters()):
-            target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
-        for target_param, local_param in zip(self.VDN_target.parameters(), self.VDN.parameters()):
-            target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
+        if e % 200 == 0:
+            self.Q_tar.load_state_dict(self.Q.state_dict())
+
+        # tau = 1e-3
+        # for target_param, local_param in zip(self.Q_tar.parameters(), self.Q.parameters()):
+        #     target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
+        # for target_param, local_param in zip(self.VDN_target.parameters(), self.VDN.parameters()):
+        #     target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
         if cfg.given_edge == True:
             return loss
         else:
