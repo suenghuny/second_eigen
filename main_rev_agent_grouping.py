@@ -221,7 +221,7 @@ def main():
     #anneal_episodes_graph_variance = int(os.environ.get("anneal_steps", 50000))
 
     gamma1 = float(os.environ.get("gamma1", 0.001))
-    gamma2 = float(os.environ.get("gamma2", 3))
+    gamma2 = float(os.environ.get("gamma2", 10))
 
     anneal_episodes_graph_variance =float(os.environ.get("anneal_episodes_graph_variance",float('inf')))
     min_graph_variance = float(os.environ.get("min_graph_variance", 0.01))
