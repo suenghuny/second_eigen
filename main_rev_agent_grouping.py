@@ -33,7 +33,7 @@ if sys.platform == "linux":
         return env(**kwargs)
     REGISTRY = {}
     REGISTRY["sc2"] = partial(env_fn, env=StarCraft2Env)
-    os.environ.setdefault("SC2PATH",os.path.join(os.getcwd(), "3rdparty", "StarCraftII"))
+    os.environ.setdefault("SC2PATH", os.path.join(os.getcwd(), "3rdparty", "StarCraftII"))
     env = REGISTRY["sc2"](map_name=cfg.map_name, seed=123, step_mul=8, replay_dir="Replays", )
 else:
     env = StarCraft2Env(map_name = cfg.map_name)
@@ -194,18 +194,18 @@ def main():
     env.reset()
     num_unit_types, unit_type_ids = get_agent_type_of_envs([env])
     env.generate_num_unit_types(num_unit_types, unit_type_ids)
-    hidden_size_obs = int(os.environ.get("hidden_size_obs", 64))#cfg.hidden_size_obs       # GAT 해당(action 및 node representation의 hidden_size)
-    hidden_size_comm = int(os.environ.get("hidden_size_comm", 64))#cfg.hidden_size_comm
-    hidden_size_action = int(os.environ.get("hidden_size_action", 64))  # cfg.hidden_size_comm
+    hidden_size_obs = int(os.environ.get("hidden_size_obs", 84))#cfg.hidden_size_obs       # GAT 해당(action 및 node representation의 hidden_size)
+    hidden_size_comm = int(os.environ.get("hidden_size_comm", 84))#cfg.hidden_size_comm
+    hidden_size_action = int(os.environ.get("hidden_size_action", 84))  # cfg.hidden_size_comm
     hidden_size_Q = int(os.environ.get("hidden_size_Q",128)) #cfg.hidden_size_Q         # GAT 해당
 
-    n_representation_obs = int(os.environ.get("n_representation_obs", 48))#cfg.n_representation_obs  # GAT 해당
-    n_representation_action = int(os.environ.get("n_representation_action", 36))  # cfg.n_representation_comm
+    n_representation_obs = int(os.environ.get("n_representation_obs", 64))#cfg.n_representation_obs  # GAT 해당
+    n_representation_action = int(os.environ.get("n_representation_action", 56))  # cfg.n_representation_comm
     n_representation_comm = int(os.environ.get("n_representation_comm", 48))#cfg.n_representation_comm
 
 
-    graph_embedding = int(os.environ.get("graph_embedding", 64))
-    graph_embedding_comm = int(os.environ.get("graph_embedding_comm", 84))
+    graph_embedding = int(os.environ.get("graph_embedding", 84))
+    graph_embedding_comm = int(os.environ.get("graph_embedding_comm", 108))
 
 #
     buffer_size = int(os.environ.get("buffer_size", 100000))#cfg.buffer_size
@@ -215,13 +215,13 @@ def main():
     learning_rate_graph = float(os.environ.get("learning_rate_graph", 1e-5))  # cfg.lr
     num_episode = 140000 #cfg.num_episode
     train_start = int(os.environ.get("train_start", 10))# cfg.train_start
-    epsilon = float(os.environ.get("epsilon", 0.8))#cfg.epsilon
-    min_epsilon = float(os.environ.get("min_epsilon", 0.03627280427199962)) #cfg.min_epsilon
+    epsilon = float(os.environ.get("epsilon", 1.0))#cfg.epsilon
+    min_epsilon = float(os.environ.get("min_epsilon", 0.05)) #cfg.min_epsilon
     anneal_steps = int(os.environ.get("anneal_steps", 50000))#cfg.anneal_steps
     #anneal_episodes_graph_variance = int(os.environ.get("anneal_steps", 50000))
 
     gamma1 = float(os.environ.get("gamma1", 0.001))
-    gamma2 = float(os.environ.get("gamma2", 10))
+    gamma2 = float(os.environ.get("gamma2",    3))
 
     anneal_episodes_graph_variance =float(os.environ.get("anneal_episodes_graph_variance",float('inf')))
     min_graph_variance = float(os.environ.get("min_graph_variance", 0.01))
