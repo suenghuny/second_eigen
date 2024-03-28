@@ -199,7 +199,6 @@ def main():
     hidden_size_comm = int(os.environ.get("hidden_size_comm", 84))#cfg.hidden_size_comm
     hidden_size_action = int(os.environ.get("hidden_size_action", 84))  # cfg.hidden_size_comm
     hidden_size_Q = int(os.environ.get("hidden_size_Q",128)) #cfg.hidden_size_Q         # GAT 해당
-
     n_representation_obs = int(os.environ.get("n_representation_obs", 64))#cfg.n_representation_obs  # GAT 해당
     n_representation_action = int(os.environ.get("n_representation_action", 56))  # cfg.n_representation_comm
     n_representation_comm = int(os.environ.get("n_representation_comm", 48))#cfg.n_representation_comm

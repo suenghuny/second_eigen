@@ -265,7 +265,7 @@ class GLCN(nn.Module):
                             Wv = H @ self.Wv[k]
                             a = self._prepare_attentional_mechanism_input(Wq, Wv, k = k)
                             zero_vec = -9e15 * torch.ones_like(A)
-                            a = torch.where(A > 0, a, zero_vec)
+                            a = torch.where(A > 0.01, a, zero_vec)
                             a = F.softmax(a, dim=1)
                             H = F.relu(torch.matmul(a, Wh))
                             if k+1 == self.k_hop:
