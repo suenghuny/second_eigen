@@ -207,7 +207,7 @@ def main():
     buffer_size = int(os.environ.get("buffer_size", 100000))#cfg.buffer_size
     batch_size = int(os.environ.get("batch_size", 24))#cfg.batch_size
     gamma = 0.99 #cfg.gamma
-    learning_rate = float(os.environ.get("learning_rate", 5.0e-4))#cfg.lr
+    learning_rate = float(os.environ.get("learning_rate", 2.0e-4))#cfg.lr
     learning_rate_graph = float(os.environ.get("learning_rate_graph", 1e-5))  # cfg.lr
     num_episode = 140000 #cfg.num_episode
     train_start = int(os.environ.get("train_start", 10))# cfg.train_start
@@ -215,7 +215,7 @@ def main():
     min_epsilon = float(os.environ.get("min_epsilon", 0.05)) #cfg.min_epsilon
     anneal_steps = int(os.environ.get("anneal_steps", 50000))#cfg.anneal_steps
     gamma1 = float(os.environ.get("gamma1", 0.0001))
-    gamma2 = float(os.environ.get("gamma2", 0.01))
+    gamma2 = float(os.environ.get("gamma2", 0.1))
 
     anneal_episodes_graph_variance =float(os.environ.get("anneal_episodes_graph_variance",float('inf')))
     min_graph_variance = float(os.environ.get("min_graph_variance", 0.01))

@@ -253,7 +253,7 @@ class Agent:
         self.anneal_episodes_graph_variance=anneal_episodes_graph_variance
         self.min_graph_variance=min_graph_variance
 
-        self.skip_connection = bool(os.environ.get("skip_connection", True))
+        self.skip_connection = bool(os.environ.get("skip_connection", False))
         if self.skip_connection == True:
             self.graph_embedding_comm = self.graph_embedding
 
