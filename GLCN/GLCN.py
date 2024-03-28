@@ -39,7 +39,7 @@ class StraightThroughEstimator(torch.autograd.Function):
         return grad_output
 
 
-def gumbel_sigmoid_sample(logits, tau=0.05, eps=1e-10):
+def gumbel_sigmoid_sample(logits, tau=float(os.environ.get("gumbel_tau",0.1)), eps=1e-10):
     # Gumbel(0, 1) 노이즈 생성
     U = torch.rand_like(logits)
     gumbel_noise = -torch.log(-torch.log(U + eps) + eps)
