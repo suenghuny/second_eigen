@@ -1,4 +1,4 @@
-
+import os
 from utils import *
 import torch
 import torch.nn as nn
@@ -253,6 +253,9 @@ class Agent:
         self.anneal_episodes_graph_variance=anneal_episodes_graph_variance
         self.min_graph_variance=min_graph_variance
 
+        self.skip_connection = bool(os.environ.get("skip_connection", True))
+        if self.skip_connection == True:
+            self.graph_embedding_comm = self.graph_embedding
 
 
 
@@ -286,13 +289,18 @@ class Agent:
         self.func_obs = GLCN(feature_size=self.n_representation_obs, graph_embedding_size=self.graph_embedding, link_prediction = False).to(device)
         if cfg.given_edge == True:
             self.func_glcn = GLCN(feature_size=self.graph_embedding,
-                                  graph_embedding_size=self.graph_embedding_comm, link_prediction = False).to(device)
-            self.func_glcn2 = GLCN(feature_size=self.graph_embedding,
-                                  graph_embedding_size=self.graph_embedding_comm, link_prediction=False).to(device)
+                                  graph_embedding_size=self.graph_embedding_comm, link_prediction = False, skip_connection = self.skip_connection).to(device)
+            self.func_glcn2 = GLCN(
+                                   feature_size=self.graph_embedding,
+                                   graph_embedding_size=self.graph_embedding_comm,
+                                   link_prediction=False,
+                                   skip_connection = self.skip_connection).to(device)
         else:
             self.func_glcn = GLCN(feature_size=self.graph_embedding,
                                   feature_obs_size=self.graph_embedding,
-                                  graph_embedding_size=self.graph_embedding_comm, link_prediction = True).to(device)
+                                  graph_embedding_size=self.graph_embedding_comm, link_prediction = True,
+                                  skip_connection = self.skip_connection
+                                  ).to(device)
 
 
         self.Q = Network(self.graph_embedding_comm + self.n_representation_action, hidden_size_Q).to(device)
@@ -316,12 +324,7 @@ class Agent:
                                list(self.func_obs.parameters()) + \
                                list(self.func_glcn.parameters()) + \
                                list(self.action_representation.parameters())
-
-        #self.graph_params = list(self.func_glcn.parameters())
-
         self.optimizer = optim.RMSprop(self.eval_params, lr=learning_rate)
-        #self.optimizer_graph = optim.RMSprop(self.graph_params, lr=learning_rate_graph)
-
 
 
     def save_model(self, file_dir, e):
@@ -337,13 +340,6 @@ class Agent:
                         },
                        file_dir+ "episode%d.pt" % e)
 
-
-        #import copy
-       # temp_agent = copy.deepcopy(self)
-        #del temp_agent.buffer
-        #temp_agent.buffer = Replay_Buffer(self.buffer_size, self.batch_size, self.num_agent, self.action_size)
-        #torch.save(temp_agent, path)
-        #del temp_agent
 
 
     def load_model(self, path):

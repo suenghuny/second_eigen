@@ -85,7 +85,7 @@ class NodeEmbedding(nn.Module):
 
 
 class GLCN(nn.Module):
-    def __init__(self, feature_size, graph_embedding_size, link_prediction = True, feature_obs_size = None):
+    def __init__(self, feature_size, graph_embedding_size, link_prediction = True, feature_obs_size = None, skip_connection = False):
         super(GLCN, self).__init__()
         self.graph_embedding_size = graph_embedding_size
         self.link_prediction = link_prediction
@@ -95,6 +95,12 @@ class GLCN(nn.Module):
             nn.init.xavier_uniform_(self.a_link.data, gain=1.414)
             self.k_hop = int(os.environ.get("k_hop",2))
             self.sampling = bool(os.environ.get("sampling", True))
+            self.skip_connection = skip_connection
+
+            if self.skip_connection == True:
+                graph_embedding_size = feature_size
+                self.graph_embedding_size = feature_size
+
             if self.sampling == True:
                 self.Ws = [nn.Parameter(torch.Tensor(feature_size, graph_embedding_size)) if k == 0 else nn.Parameter(torch.Tensor(size=(graph_embedding_size, graph_embedding_size))) for k in range(self.k_hop)]
                 [glorot(W) for W in self.Ws]
@@ -219,14 +225,17 @@ class GLCN(nn.Module):
                 if self.sampling == True:
                     H = X
                     for k in range(self.k_hop):
+                        X_past = H
                         Wh = H @ self.Ws[k]
                         Wq = H @ self.Wq[k]
                         Wv = H @ self.Wv[k]
                         a = self._prepare_attentional_mechanism_input(Wq, Wv, k=k)
                         zero_vec = -9e15 * torch.ones_like(A)
-                        a = torch.where(A > 0, a, zero_vec)
+                        a = torch.where(A > 0.01, a, zero_vec)
                         a = F.softmax(a, dim=1)
                         H = F.relu(torch.matmul(a, Wh))
+                        if self.skip_connection == True:
+                            H = H + X_past
                 else:
                     I = torch.eye(A.size(0)).to(device)
                     A_hat = A + I
@@ -260,6 +269,7 @@ class GLCN(nn.Module):
                         for k in range(self.k_hop):
                             if k != 0:
                                 A = A.detach()
+                            X_past = H
                             Wh = H @ self.Ws[k]
                             Wq = H @ self.Wq[k]
                             Wv = H @ self.Wv[k]
@@ -268,6 +278,8 @@ class GLCN(nn.Module):
                             a = torch.where(A > 0.01, a, zero_vec)
                             a = F.softmax(a, dim=1)
                             H = F.relu(torch.matmul(a, Wh))
+                            if self.skip_connection == True:
+                                H = H + X_past
                             if k+1 == self.k_hop:
                                 H_placeholder.append(H)
                     else:
