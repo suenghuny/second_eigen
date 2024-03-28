@@ -179,7 +179,7 @@ class GLCN(nn.Module):
             Wh1 = torch.matmul(Wh1, self.a[k][:self.graph_embedding_size, : ])
             Wh2 = Wv
             Wh2 = torch.matmul(Wh2, self.a[k][self.graph_embedding_size:, :])
-            e = Wh1 @ Wh2.T
+            e = Wh1 + Wh2.T
         return F.leaky_relu(e, negative_slope=cfg.negativeslope)
 
 
@@ -227,9 +227,9 @@ class GLCN(nn.Module):
                     for k in range(self.k_hop):
                         X_past = H
                         Wh = H @ self.Ws[k]
-                        Wq = H @ self.Wq[k]
-                        Wv = H @ self.Wv[k]
-                        a = self._prepare_attentional_mechanism_input(Wq, Wv, k=k)
+                        # Wq = H @ self.Wq[k]
+                        # Wv = H @ self.Wv[k]
+                        a = self._prepare_attentional_mechanism_input(Wh, Wh, k=k)
                         zero_vec = -9e15 * torch.ones_like(A)
                         a = torch.where(A > 0.01, a, zero_vec)
                         a = F.softmax(a, dim=1)
@@ -271,9 +271,9 @@ class GLCN(nn.Module):
                                 A = A.detach()
                             X_past = H
                             Wh = H @ self.Ws[k]
-                            Wq = H @ self.Wq[k]
-                            Wv = H @ self.Wv[k]
-                            a = self._prepare_attentional_mechanism_input(Wq, Wv, k = k)
+                            # Wq = H @ self.Wq[k]
+                            # Wv = H @ self.Wv[k]
+                            a = self._prepare_attentional_mechanism_input(Wh, Wh, k = k)
                             zero_vec = -9e15 * torch.ones_like(A)
                             a = torch.where(A > 0.01, a, zero_vec)
                             a = F.softmax(a, dim=1)
