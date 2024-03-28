@@ -27,6 +27,29 @@ def sample_adjacency_matrix(weight_matrix):
     #print(adjacency_matrix)
     return adjacency_matrix
 
+class StraightThroughEstimator(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, input):
+        sampled = (input > torch.rand(input.shape).to(input.device)).float()
+        return sampled
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        # grad_output을 그대로 통과시킴
+        return grad_output
+
+
+def gumbel_sigmoid_sample(logits, tau=0.05, eps=1e-10):
+    # Gumbel(0, 1) 노이즈 생성
+    U = torch.rand_like(logits)
+    gumbel_noise = -torch.log(-torch.log(U + eps) + eps)
+    # 로짓에 Gumbel 노이즈 추가
+    gumbel_logits = logits + gumbel_noise
+    # Sigmoid 함수 적용
+    y = torch.sigmoid(gumbel_logits / tau)
+    return y
+
+
 def weight_init_xavier_uniform(submodule):
     if isinstance(submodule, torch.nn.Conv2d):
         torch.nn.init.xavier_uniform_(submodule.weight)
@@ -71,7 +94,7 @@ class GLCN(nn.Module):
             self.a_link = nn.Parameter(torch.empty(size=(self.feature_obs_size, 1)))
             nn.init.xavier_uniform_(self.a_link.data, gain=1.414)
             self.k_hop = int(os.environ.get("k_hop",2))
-            self.sampling = bool(os.environ.get("sampling",False))
+            self.sampling = bool(os.environ.get("sampling", True))
             if self.sampling == True:
                 self.Ws = [nn.Parameter(torch.Tensor(feature_size, graph_embedding_size)) if k == 0 else nn.Parameter(torch.Tensor(size=(graph_embedding_size, graph_embedding_size))) for k in range(self.k_hop)]
                 [glorot(W) for W in self.Ws]
@@ -120,11 +143,14 @@ class GLCN(nn.Module):
             h = h.detach()
             h = h[:, :self.feature_obs_size]
             h = torch.einsum("ijk,kl->ijl", torch.abs(h.unsqueeze(1) - h.unsqueeze(0)), self.a_link)
-            A = F.sigmoid(h).squeeze(2)
+            h = h.squeeze(2)
+            if self.sampling == True:
+                A = gumbel_sigmoid_sample(h)
+            else:
+                A = F.sigmoid(h)
             D = torch.diag(torch.diag(A))
             A = A-D
             if self.sampling ==True:
-                A = sample_adjacency_matrix(A)
                 I = torch.eye(A.size(0)).to(device)
                 A = A+I
             else:
@@ -166,7 +192,7 @@ class GLCN(nn.Module):
                 a = torch.where(E > 0, a, zero_vec)
                 a = F.softmax(a, dim = 1)
                 H = F.relu(torch.matmul(a, Wh))
-                #print("뒹벳",H)
+                #print("뒹벳",H) #
             else:
                 batch_size = X.shape[0]
                 num_nodes = X.shape[1]

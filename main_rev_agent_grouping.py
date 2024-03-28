@@ -161,6 +161,7 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
         agent.buffer.memory(node_feature, action, action_feature, edge_index_enemy, edge_index_ally, reward,
                             done, avail_action, dead_masking)
         episode_reward += reward
+
         t += 1
         step += 1
         if (t % 5000 == 0) and (t >0):
@@ -202,12 +203,8 @@ def main():
     n_representation_obs = int(os.environ.get("n_representation_obs", 64))#cfg.n_representation_obs  # GAT 해당
     n_representation_action = int(os.environ.get("n_representation_action", 56))  # cfg.n_representation_comm
     n_representation_comm = int(os.environ.get("n_representation_comm", 48))#cfg.n_representation_comm
-
-
     graph_embedding = int(os.environ.get("graph_embedding", 84))
     graph_embedding_comm = int(os.environ.get("graph_embedding_comm", 108))
-
-#
     buffer_size = int(os.environ.get("buffer_size", 100000))#cfg.buffer_size
     batch_size = int(os.environ.get("batch_size", 24))#cfg.batch_size
     gamma = 0.99 #cfg.gamma
@@ -218,10 +215,8 @@ def main():
     epsilon = float(os.environ.get("epsilon", 1.0))#cfg.epsilon
     min_epsilon = float(os.environ.get("min_epsilon", 0.05)) #cfg.min_epsilon
     anneal_steps = int(os.environ.get("anneal_steps", 50000))#cfg.anneal_steps
-    #anneal_episodes_graph_variance = int(os.environ.get("anneal_steps", 50000))
-
-    gamma1 = float(os.environ.get("gamma1", 0.001))
-    gamma2 = float(os.environ.get("gamma2",    3))
+    gamma1 = float(os.environ.get("gamma1", 0.0001))
+    gamma2 = float(os.environ.get("gamma2",    1))
 
     anneal_episodes_graph_variance =float(os.environ.get("anneal_episodes_graph_variance",float('inf')))
     min_graph_variance = float(os.environ.get("min_graph_variance", 0.01))
@@ -254,7 +249,8 @@ def main():
                    gamma1 = gamma1,
                    gamma2 = gamma2,
                    anneal_episodes_graph_variance = anneal_episodes_graph_variance,
-                  min_graph_variance = min_graph_variance
+                  min_graph_variance = min_graph_variance,
+                  env = None
                   )
 
 

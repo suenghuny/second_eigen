@@ -65,6 +65,7 @@ class NodeEmbedding(nn.Module):
         torch.nn.init.xavier_uniform_(self.fcn_3.weight)
 
     def forward(self, node_feature):
+        #node_feature = node_feature.double()
         x = F.relu(self.fcn_1(node_feature))
         x = F.relu(self.fcn_2(x))
         node_representation = self.fcn_3(x)
@@ -209,7 +210,8 @@ class Agent:
                  gamma1,
                  gamma2,
                  anneal_episodes_graph_variance,
-                 min_graph_variance
+                 min_graph_variance,
+                 env
     ):
         torch.manual_seed(81)
         random.seed(81)
@@ -271,9 +273,14 @@ class Agent:
         self.node_representation_comm = NodeEmbedding(feature_size =self.feature_size-1,
                                                       hidden_size  =self.hidden_size_comm,
                                                       n_representation_obs=self.n_representation_comm).to(device)  # 수정사항
-        self.action_representation = NodeEmbedding(feature_size=self.feature_size + 5,
-                                                   hidden_size=self.hidden_size_action,
-                                                   n_representation_obs=self.n_representation_action).to(device)  # 수정사항
+        if env == 'pp':
+            self.action_representation = NodeEmbedding(feature_size=5,
+                                                       hidden_size=self.hidden_size_action,
+                                                       n_representation_obs=self.n_representation_action).to(device)  # 수정사항
+        else:
+            self.action_representation = NodeEmbedding(feature_size=self.feature_size + 5,
+                                                       hidden_size=self.hidden_size_action,
+                                                       n_representation_obs=self.n_representation_action).to(device)  # 수정사항
 
 
         self.func_obs = GLCN(feature_size=self.n_representation_obs, graph_embedding_size=self.graph_embedding, link_prediction = False).to(device)
@@ -395,9 +402,12 @@ class Agent:
 
         """
         if target == False:
-            action_features = torch.tensor(action_features, device=device)
+            action_features = torch.tensor(action_features).to(device=device, dtype=torch.float32)
+
+
             action_size = action_features.shape[1]
             obs_n = obs[:, agent_id].unsqueeze(1).expand([self.batch_size, action_size, self.graph_embedding_comm])
+
             action_embedding = self.action_representation(action_features)
             obs_and_action = torch.concat([obs_n, action_embedding], dim=2)
             obs_and_action = obs_and_action.float()
@@ -411,7 +421,7 @@ class Agent:
             with torch.no_grad():
                 obs_next = obs
                 action_features_next = action_features
-                action_features_next = torch.tensor(action_features_next, device=device)
+                action_features_next = torch.tensor(action_features_next).to(device=device, dtype=torch.float32)
                 action_size = action_features_next.shape[1]
                 obs_next = obs_next[:, agent_id].unsqueeze(1).expand([self.batch_size, action_size, self.graph_embedding_comm])
                 action_embedding_next = self.action_representation(action_features_next)
@@ -455,7 +465,7 @@ class Agent:
 
             if np.random.uniform(0, 1) >= epsilon:
                 u = greedy_u
-                action.append(u)
+                action.append(u.item())
             else:
                 u = np.random.choice(action_space, p=mask_n / np.sum(mask_n))
                 action.append(u)

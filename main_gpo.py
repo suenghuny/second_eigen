@@ -125,6 +125,7 @@ def train(agent, env, e, t, monitor, params):
                       state
                       )
         agent.put_data(transition)
+        print("??")
         episode_reward += reward
         t += 1
         step += 1
