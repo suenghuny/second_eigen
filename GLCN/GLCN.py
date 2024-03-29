@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import os
 import torch.nn.functional as F
-
+from torch import Tensor
 from collections import OrderedDict
 import sys
 sys.path.append("..")  # 상위 폴더를 import할 수 있도록 경로 추가
@@ -39,7 +39,7 @@ class StraightThroughEstimator(torch.autograd.Function):
         return grad_output
 
 
-def gumbel_sigmoid_sample(logits, tau=float(os.environ.get("gumbel_tau",0.1)), eps=1e-10):
+def gumbel_sigmoid_sample(logits, tau=float(os.environ.get("gumbel_tau",0.2)), eps=1e-10):
     # Gumbel(0, 1) 노이즈 생성
     U = torch.rand_like(logits)
     gumbel_noise = -torch.log(-torch.log(U + eps) + eps)
@@ -47,7 +47,26 @@ def gumbel_sigmoid_sample(logits, tau=float(os.environ.get("gumbel_tau",0.1)), e
     gumbel_logits = logits + gumbel_noise
     # Sigmoid 함수 적용
     y = torch.sigmoid(gumbel_logits / tau)
+    print(y)
     return y
+
+def gumbel_sigmoid(logits: Tensor, tau: float = 1, hard: bool = False, threshold: float = 0.5) -> Tensor:
+    gumbels = (
+        -torch.empty_like(logits, memory_format=torch.legacy_contiguous_format).exponential_().log()
+    )  # ~Gumbel(0, 1)
+    gumbels = (logits + gumbels) / tau  # ~Gumbel(logits, tau)
+    y_soft = gumbels.sigmoid()
+
+    if hard:
+        # Straight through.
+        indices = (y_soft > threshold).nonzero(as_tuple=True)
+        y_hard = torch.zeros_like(logits, memory_format=torch.legacy_contiguous_format)
+        y_hard[indices[0], indices[1]] = 1.0
+        ret = y_hard - y_soft.detach() + y_soft
+    else:
+        # Reparametrization trick.
+        ret = y_soft
+    return ret
 
 
 def weight_init_xavier_uniform(submodule):
@@ -151,7 +170,8 @@ class GLCN(nn.Module):
             h = torch.einsum("ijk,kl->ijl", torch.abs(h.unsqueeze(1) - h.unsqueeze(0)), self.a_link)
             h = h.squeeze(2)
             if self.sampling == True:
-                A = gumbel_sigmoid_sample(h)
+                A = gumbel_sigmoid(h, tau = float(os.environ.get("gumbel_tau",0.15)))
+                print(A)
             else:
                 A = F.sigmoid(h)
             # D = torch.diag(torch.diag(A))

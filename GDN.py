@@ -362,7 +362,8 @@ class Agent:
                     return node_embedding
 
                 else:
-                    node_embedding, A, X = self.func_glcn(X = cat_embedding, dead_masking= dead_masking, A = None)
+                    node_embedding, A, X = self.func_glcn(X = cat_embedding[:n_agent,:], dead_masking= dead_masking, A = None)
+                    # 오류 수정
                     return node_embedding, A, X
         else:
             node_feature = torch.tensor(node_feature, dtype=torch.float, device=device)
@@ -374,7 +375,7 @@ class Agent:
             cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim=2)
 
             if cfg.given_edge == True:
-                node_embedding = self.func_glcn(X=cat_embedding, A=edge_index_comm, dead_masking= dead_masking, mini_batch=mini_batch)
+                node_embedding = self.func_glcn(X=cat_embedding[:n_agent,:], A=edge_index_comm, dead_masking= dead_masking, mini_batch=mini_batch)
                 return node_embedding
             else:
                 #print("전", cat_embedding.shape,cat_embedding[:, :n_agent,:].shape)
