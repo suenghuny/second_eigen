@@ -191,9 +191,9 @@ class GLCN(nn.Module):
                 num_nodes = X.shape[0]
                 E = torch.sparse_coo_tensor(E, torch.ones(torch.tensor(E).shape[1]).to(device), (num_nodes, num_nodes)).long().to(device).to_dense()
                 Wh = X @ self.Ws
-                Wq = X @ self.Wq
-                Wv = X @ self.Wv
-                a = self._prepare_attentional_mechanism_input(Wq, Wv)
+                # Wq = X @ self.Wq
+                # Wv = X @ self.Wv
+                a = self._prepare_attentional_mechanism_input(Wh, Wh)
                 zero_vec = -9e15 * torch.ones_like(E)
                 a = torch.where(E > 0, a, zero_vec)
                 a = F.softmax(a, dim = 1)
@@ -208,9 +208,9 @@ class GLCN(nn.Module):
                     E = torch.tensor(A[b]).long().to(device)
                     E = torch.sparse_coo_tensor(E, torch.ones(torch.tensor(E).shape[1]).to(device), (num_nodes, num_nodes)).long().to(device).to_dense()
                     Wh = X_t @ self.Ws
-                    Wq = X_t @ self.Wq
-                    Wv = X_t @ self.Wv
-                    a = self._prepare_attentional_mechanism_input(Wq, Wv)
+                    # Wq = X_t @ self.Wq
+                    # Wv = X_t @ self.Wv
+                    a = self._prepare_attentional_mechanism_input(Wh,Wh)
                     zero_vec = -9e15 * torch.ones_like(E)
                     a = torch.where(E > 0, a, zero_vec)
                     a = F.softmax(a, dim = 1)
