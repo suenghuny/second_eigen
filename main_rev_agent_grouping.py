@@ -244,12 +244,13 @@ def main():
                    batch_size = batch_size,
                    learning_rate = learning_rate,
                    learning_rate_graph = learning_rate_graph,
+
                    gamma = gamma,
                    gamma1 = gamma1,
                    gamma2 = gamma2,
                    anneal_episodes_graph_variance = anneal_episodes_graph_variance,
-                  min_graph_variance = min_graph_variance,
-                  env = None
+                   min_graph_variance = min_graph_variance,
+                   env = None
                   )
 
 

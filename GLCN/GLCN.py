@@ -47,7 +47,6 @@ def gumbel_sigmoid_sample(logits, tau=float(os.environ.get("gumbel_tau",0.2)), e
     gumbel_logits = logits + gumbel_noise
     # Sigmoid 함수 적용
     y = torch.sigmoid(gumbel_logits / tau)
-    print(y)
     return y
 
 def gumbel_sigmoid(logits: Tensor, tau: float = 1, hard: bool = False, threshold: float = 0.5) -> Tensor:
@@ -171,7 +170,6 @@ class GLCN(nn.Module):
             h = h.squeeze(2)
             if self.sampling == True:
                 A = gumbel_sigmoid(h, tau = float(os.environ.get("gumbel_tau",0.15)))
-                print(A)
             else:
                 A = F.sigmoid(h)
             # D = torch.diag(torch.diag(A))
