@@ -172,12 +172,12 @@ class GLCN(nn.Module):
                 A = gumbel_sigmoid(h, tau = float(os.environ.get("gumbel_tau",0.15)))
             else:
                 A = F.sigmoid(h)
-            # D = torch.diag(torch.diag(A))
-            # A = A-D
+            D = torch.diag(torch.diag(A))
+            A = A-D
             if self.sampling ==True:
-                # I = torch.eye(A.size(0)).to(device)
-                # A = A+I
-                A = A
+                I = torch.eye(A.size(0)).to(device)
+                A = A+I
+                #A = A
             else:
                 A = A
         return A
