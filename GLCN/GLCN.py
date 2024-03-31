@@ -27,37 +27,17 @@ def sample_adjacency_matrix(weight_matrix):
     #print(adjacency_matrix)
     return adjacency_matrix
 
-class StraightThroughEstimator(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, input):
-        sampled = (input > torch.rand(input.shape).to(input.device)).float()
-        return sampled
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        # grad_output을 그대로 통과시킴
-        return grad_output
-
-
-def gumbel_sigmoid_sample(logits, tau=float(os.environ.get("gumbel_tau",0.2)), eps=1e-10):
-    # Gumbel(0, 1) 노이즈 생성
-    U = torch.rand_like(logits)
-    gumbel_noise = -torch.log(-torch.log(U + eps) + eps)
-    # 로짓에 Gumbel 노이즈 추가
-    gumbel_logits = logits + gumbel_noise
-    # Sigmoid 함수 적용
-    y = torch.sigmoid(gumbel_logits / tau)
-    return y
 
 def gumbel_sigmoid(logits: Tensor, tau: float = 1, hard: bool = False, threshold: float = 0.5) -> Tensor:
     gumbels = (
         -torch.empty_like(logits, memory_format=torch.legacy_contiguous_format).exponential_().log()
-    )  # ~Gumbel(0, 1)
+    )
     gumbels = (logits + gumbels) / tau  # ~Gumbel(logits, tau)
     y_soft = gumbels.sigmoid()
 
     if hard:
         # Straight through.
+
         indices = (y_soft > threshold).nonzero(as_tuple=True)
         y_hard = torch.zeros_like(logits, memory_format=torch.legacy_contiguous_format)
         y_hard[indices[0], indices[1]] = 1.0
@@ -112,7 +92,8 @@ class GLCN(nn.Module):
             self.a_link = nn.Parameter(torch.empty(size=(self.feature_obs_size, 1)))
             nn.init.xavier_uniform_(self.a_link.data, gain=1.414)
             self.k_hop = int(os.environ.get("k_hop",2))
-            self.sampling = bool(os.environ.get("sampling", False))
+            self.sampling = bool(os.environ.get("sampling", True))
+
             self.skip_connection = skip_connection
 
             if self.skip_connection == True:
@@ -123,18 +104,10 @@ class GLCN(nn.Module):
                 self.Ws = [nn.Parameter(torch.Tensor(feature_size, graph_embedding_size)) if k == 0 else nn.Parameter(torch.Tensor(size=(graph_embedding_size, graph_embedding_size))) for k in range(self.k_hop)]
                 [glorot(W) for W in self.Ws]
 
-                self.Wv = [nn.Parameter(torch.Tensor(feature_size, graph_embedding_size)) if k == 0 else nn.Parameter(torch.Tensor(size=(graph_embedding_size, graph_embedding_size))) for k in range(self.k_hop)]
-                [glorot(W) for W in self.Wv]
-
-                self.Wq = [nn.Parameter(torch.Tensor(feature_size, graph_embedding_size)) if k == 0 else nn.Parameter(torch.Tensor(size=(graph_embedding_size, graph_embedding_size))) for k in range(self.k_hop)]
-                [glorot(W) for W in self.Wq]
-
                 self.a = [nn.Parameter(torch.empty(size=(2 * graph_embedding_size, 1))) if k == 0 else nn.Parameter(torch.empty(size=(2 * graph_embedding_size, 1))) for k in range(self.k_hop)]
                 [nn.init.xavier_uniform_(self.a[k].data, gain=1.414) for k in range(self.k_hop)]
 
                 self.Ws = nn.ParameterList(self.Ws)
-                self.Wv = nn.ParameterList(self.Wv)
-                self.Wq = nn.ParameterList(self.Wq)
                 self.a = nn.ParameterList(self.a)
             else:
                 self.W = [nn.Parameter(torch.Tensor(size=(feature_size, graph_embedding_size))) if k == 0 else nn.Parameter(torch.Tensor(size=(graph_embedding_size, graph_embedding_size))) for k in range(self.k_hop)]
@@ -144,11 +117,7 @@ class GLCN(nn.Module):
             self.Ws = nn.Parameter(torch.Tensor(feature_size, graph_embedding_size))
             glorot(self.Ws)
 
-            self.Wv = nn.Parameter(torch.Tensor(feature_size, graph_embedding_size))
-            glorot(self.Wv)
 
-            self.Wq = nn.Parameter(torch.Tensor(feature_size, graph_embedding_size))
-            glorot(self.Wq)
             self.a = nn.Parameter(torch.empty(size=(2 * graph_embedding_size, 1)))
             nn.init.xavier_uniform_(self.a.data, gain=1.414)
 
@@ -169,7 +138,8 @@ class GLCN(nn.Module):
             h = torch.einsum("ijk,kl->ijl", torch.abs(h.unsqueeze(1) - h.unsqueeze(0)), self.a_link)
             h = h.squeeze(2)
             if self.sampling == True:
-                A = gumbel_sigmoid(h, tau = float(os.environ.get("gumbel_tau",0.15)))
+                A = gumbel_sigmoid(h, tau = float(os.environ.get("gumbel_tau",1)))
+
             else:
                 A = F.sigmoid(h)
             D = torch.diag(torch.diag(A))
@@ -214,6 +184,7 @@ class GLCN(nn.Module):
                 # Wv = X @ self.Wv
                 a = self._prepare_attentional_mechanism_input(Wh, Wh)
                 zero_vec = -9e15 * torch.ones_like(E)
+
                 a = torch.where(E > 0, a, zero_vec)
                 a = F.softmax(a, dim = 1)
                 H = F.relu(torch.matmul(a, Wh))
@@ -250,7 +221,8 @@ class GLCN(nn.Module):
                         # Wv = H @ self.Wv[k]
                         a = self._prepare_attentional_mechanism_input(Wh, Wh, k=k)
                         zero_vec = -9e15 * torch.ones_like(A)
-                        a = torch.where(A > 0.5, a, zero_vec)
+                        A = torch.where(A > 0.5, A, zero_vec)
+                        a = A * a
                         a = F.softmax(a, dim=1)
                         H = F.relu(torch.matmul(a, Wh))
                         if self.skip_connection == True:
@@ -294,7 +266,8 @@ class GLCN(nn.Module):
                             # Wv = H @ self.Wv[k]
                             a = self._prepare_attentional_mechanism_input(Wh, Wh, k = k)
                             zero_vec = -9e15 * torch.ones_like(A)
-                            a = torch.where(A > 0.5, a, zero_vec)
+                            A = torch.where(A > 0.5, A, zero_vec)
+                            a = A*a
                             a = F.softmax(a, dim=1)
                             H = F.relu(torch.matmul(a, Wh))
                             if self.skip_connection == True:

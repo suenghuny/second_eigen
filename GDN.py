@@ -15,9 +15,6 @@ cfg = get_cfg()
 from GAT.model import GAT
 from GAT.layers import device
 from copy import deepcopy
-from scipy.sparse import csr_matrix
-
-
 
 
 class VDN(nn.Module):
@@ -366,6 +363,8 @@ class Agent:
                     # 오류 수정
                     return node_embedding, A, X
         else:
+
+
             node_feature = torch.tensor(node_feature, dtype=torch.float, device=device)
 
             node_embedding_obs  = self.node_representation(node_feature)
@@ -380,6 +379,9 @@ class Agent:
             else:
                 #print("전", cat_embedding.shape,cat_embedding[:, :n_agent,:].shape)
                 node_embedding, A, X, D = self.func_glcn(X = cat_embedding[:, :n_agent,:], dead_masking= dead_masking, A = None, mini_batch = mini_batch)
+                #writer = SummaryWriter('runs/your_model_experiment')
+
+
 
                 return node_embedding, A, X, D
 
