@@ -138,7 +138,7 @@ class GLCN(nn.Module):
             h = torch.einsum("ijk,kl->ijl", torch.abs(h.unsqueeze(1) - h.unsqueeze(0)), self.a_link)
             h = h.squeeze(2)
             if self.sampling == True:
-                A = gumbel_sigmoid(h, tau = float(os.environ.get("gumbel_tau",1)))
+                A = gumbel_sigmoid(h, tau = float(os.environ.get("gumbel_tau",1)), hard = True, threshold = 0.5)
 
             else:
                 A = F.sigmoid(h)
@@ -220,8 +220,8 @@ class GLCN(nn.Module):
                         # Wq = H @ self.Wq[k]
                         # Wv = H @ self.Wv[k]
                         a = self._prepare_attentional_mechanism_input(Wh, Wh, k=k)
-                        zero_vec = -9e15 * torch.ones_like(A)
-                        A = torch.where(A > 0.5, A, zero_vec)
+                        # zero_vec = -9e15 * torch.ones_like(A)
+                        # A = torch.where(A > 0.5, A, zero_vec)
                         a = A * a
                         a = F.softmax(a, dim=1)
                         H = F.relu(torch.matmul(a, Wh))
@@ -265,9 +265,10 @@ class GLCN(nn.Module):
                             # Wq = H @ self.Wq[k]
                             # Wv = H @ self.Wv[k]
                             a = self._prepare_attentional_mechanism_input(Wh, Wh, k = k)
-                            zero_vec = -9e15 * torch.ones_like(A)
-                            A = torch.where(A > 0.5, A, zero_vec)
+                            # zero_vec = -9e15 * torch.ones_like(A)
+                            # A = torch.where(A > 0.5, A, zero_vec)
                             a = A*a
+                            #print(A.shape, a.shape, (A*a).shape)
                             a = F.softmax(a, dim=1)
                             H = F.relu(torch.matmul(a, Wh))
                             if self.skip_connection == True:
