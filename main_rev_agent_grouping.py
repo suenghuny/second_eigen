@@ -1,6 +1,6 @@
 import pandas as pd
 from utils import *
-
+from smac_rev import StarCraft2Env
 from GDN import Agent
 from functools import partial
 import numpy as np
@@ -28,7 +28,15 @@ else:
 
 
 
-
+if sys.platform == "linux":
+    def env_fn(env, **kwargs):
+        return env(**kwargs)
+    REGISTRY = {}
+    REGISTRY["sc2"] = partial(env_fn, env=StarCraft2Env)
+    os.environ.setdefault("SC2PATH", os.path.join(os.getcwd(), "3rdparty", "StarCraftII"))
+    env = REGISTRY["sc2"](map_name=cfg.map_name, seed=123, step_mul=8, replay_dir="Replays", )
+else:
+    env = StarCraft2Env(map_name = cfg.map_name)
 
 
 map_name1 = cfg.map_name
@@ -184,31 +192,8 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
 
 
 def main():
-    if sys.platform == "linux":
-        from smac_rev import StarCraft2Env
-        def env_fn(env, **kwargs):
-            return env(**kwargs)
 
-        REGISTRY = {}
-        REGISTRY["sc2"] = partial(env_fn, env=StarCraft2Env)
-        os.environ.setdefault("SC2PATH", os.path.join(os.getcwd(), "3rdparty", "StarCraftII"))
-        env = REGISTRY["sc2"](map_name=cfg.map_name, seed=123, step_mul=8, replay_dir="Replays", )
-    else:
-        from smac_rev import StarCraft2Env
-        env = StarCraft2Env(map_name=cfg.map_name)
-
-    try:
-        env.reset()
-    except FileNotFoundError:
-        from smac_rev import StarCraft2Env
-        def env_fn(env, **kwargs):
-            return env(**kwargs)
-
-        REGISTRY = {}
-        REGISTRY["sc2"] = partial(env_fn, env=StarCraft2Env)
-        os.environ.setdefault("SC2PATH", os.path.join(os.getcwd(), "3rdparty", "StarCraftII"))
-        env = REGISTRY["sc2"](map_name=cfg.map_name, seed=123, step_mul=8, replay_dir="Replays", )
-        env.reset()
+    env.reset()
     num_unit_types, unit_type_ids = get_agent_type_of_envs([env])
     env.generate_num_unit_types(num_unit_types, unit_type_ids)
     hidden_size_obs = int(os.environ.get("hidden_size_obs", 84))#cfg.hidden_size_obs       # GAT 해당(action 및 node representation의 hidden_size)
