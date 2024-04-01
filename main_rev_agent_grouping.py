@@ -200,8 +200,14 @@ def main():
     try:
         env.reset()
     except FileNotFoundError:
-        from smac.env.starcraft2.smac_rev import StarCraft2Env
-        env = StarCraft2Env(map_name=cfg.map_name)
+        from smac_rev import StarCraft2Env
+        def env_fn(env, **kwargs):
+            return env(**kwargs)
+
+        REGISTRY = {}
+        REGISTRY["sc2"] = partial(env_fn, env=StarCraft2Env)
+        os.environ.setdefault("SC2PATH", os.path.join(os.getcwd(), "3rdparty", "StarCraftII"))
+        env = REGISTRY["sc2"](map_name=cfg.map_name, seed=123, step_mul=8, replay_dir="Replays", )
         env.reset()
     num_unit_types, unit_type_ids = get_agent_type_of_envs([env])
     env.generate_num_unit_types(num_unit_types, unit_type_ids)
