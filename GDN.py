@@ -543,8 +543,7 @@ class Agent:
         self.optimizer.zero_grad()
 
 
-        if e % 200 == 0:
-            self.Q_tar.load_state_dict(self.Q.state_dict())
+        #self.Q_tar.load_state_dict(self.Q.state_dict())
 
         # tau = 1e-3
         # for target_param, local_param in zip(self.Q_tar.parameters(), self.Q.parameters()):
