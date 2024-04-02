@@ -139,15 +139,14 @@ class GLCN(nn.Module):
             h = h.squeeze(2)
             if self.sampling == True:
                 A = gumbel_sigmoid(h, tau = float(os.environ.get("gumbel_tau",1)), hard = True, threshold = 0.5)
-
             else:
                 A = F.sigmoid(h)
+
             D = torch.diag(torch.diag(A))
             A = A-D
             if self.sampling ==True:
                 I = torch.eye(A.size(0)).to(device)
                 A = A+I
-                #A = A
             else:
                 A = A
         return A
@@ -180,11 +179,8 @@ class GLCN(nn.Module):
                 num_nodes = X.shape[0]
                 E = torch.sparse_coo_tensor(E, torch.ones(torch.tensor(E).shape[1]).to(device), (num_nodes, num_nodes)).long().to(device).to_dense()
                 Wh = X @ self.Ws
-                # Wq = X @ self.Wq
-                # Wv = X @ self.Wv
                 a = self._prepare_attentional_mechanism_input(Wh, Wh)
                 zero_vec = -9e15 * torch.ones_like(E)
-
                 a = torch.where(E > 0, a, zero_vec)
                 a = F.softmax(a, dim = 1)
                 H = F.relu(torch.matmul(a, Wh))
@@ -217,11 +213,7 @@ class GLCN(nn.Module):
                     for k in range(self.k_hop):
                         X_past = H
                         Wh = H @ self.Ws[k]
-                        # Wq = H @ self.Wq[k]
-                        # Wv = H @ self.Wv[k]
                         a = self._prepare_attentional_mechanism_input(Wh, Wh, k=k)
-                        # zero_vec = -9e15 * torch.ones_like(A)
-                        # A = torch.where(A > 0.5, A, zero_vec)
                         a = A * a
                         a = F.softmax(a, dim=1)
                         H = F.relu(torch.matmul(a, Wh))
@@ -262,13 +254,8 @@ class GLCN(nn.Module):
                                 A = A.detach()
                             X_past = H
                             Wh = H @ self.Ws[k]
-                            # Wq = H @ self.Wq[k]
-                            # Wv = H @ self.Wv[k]
                             a = self._prepare_attentional_mechanism_input(Wh, Wh, k = k)
-                            # zero_vec = -9e15 * torch.ones_like(A)
-                            # A = torch.where(A > 0.5, A, zero_vec)
                             a = A*a
-                            #print(A.shape, a.shape, (A*a).shape)
                             a = F.softmax(a, dim=1)
                             H = F.relu(torch.matmul(a, Wh))
                             if self.skip_connection == True:

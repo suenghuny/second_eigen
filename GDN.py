@@ -538,7 +538,7 @@ class Agent:
             loss = graph_loss+rl_loss
 
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.eval_params, float(os.environ.get("grad_clip", 7)))
+        torch.nn.utils.clip_grad_norm_(self.eval_params, float(os.environ.get("grad_clip", 5)))
         self.optimizer.step()
         self.optimizer.zero_grad()
 
