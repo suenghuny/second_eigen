@@ -216,8 +216,8 @@ def main():
     epsilon = float(os.environ.get("epsilon", 1.0))#cfg.epsilon
     min_epsilon = float(os.environ.get("min_epsilon", 0.05)) #cfg.min_epsilon
     anneal_steps = int(os.environ.get("anneal_steps", 50000))#cfg.anneal_steps
-    gamma1 = float(os.environ.get("gamma1", 0.000075))
-    gamma2 = float(os.environ.get("gamma2", 0.0003))
+    gamma1 = float(os.environ.get("gamma1", 0.0001))
+    gamma2 = float(os.environ.get("gamma2", 0.0005))
 
     anneal_episodes_graph_variance =float(os.environ.get("anneal_episodes_graph_variance",float('inf')))
     min_graph_variance = float(os.environ.get("min_graph_variance", 0.01))
