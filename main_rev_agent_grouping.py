@@ -201,11 +201,11 @@ def main():
     hidden_size_comm = int(os.environ.get("hidden_size_comm", 84))#cfg.hidden_size_comm
     hidden_size_action = int(os.environ.get("hidden_size_action", 84))  # cfg.hidden_size_comm
     hidden_size_Q = int(os.environ.get("hidden_size_Q",128)) #cfg.hidden_size_Q         # GAT 해당
-    n_representation_obs = int(os.environ.get("n_representation_obs", 36))#cfg.n_representation_obs  # GAT 해당
-    n_representation_action = int(os.environ.get("n_representation_action", 48))  # cfg.n_representation_comm
-    n_representation_comm = int(os.environ.get("n_representation_comm", 36))#cfg.n_representation_comm
-    graph_embedding = int(os.environ.get("graph_embedding", 56))
-    graph_embedding_comm = int(os.environ.get("graph_embedding_comm", 64))
+    n_representation_obs = int(os.environ.get("n_representation_obs", 64))#cfg.n_representation_obs  # GAT 해당
+    n_representation_action = int(os.environ.get("n_representation_action", 56))  # cfg.n_representation_comm
+    n_representation_comm = int(os.environ.get("n_representation_comm", 48))#cfg.n_representation_comm
+    graph_embedding = int(os.environ.get("graph_embedding", 64))
+    graph_embedding_comm = int(os.environ.get("graph_embedding_comm", 84))
     buffer_size = int(os.environ.get("buffer_size", 100000))#cfg.buffer_size
     batch_size = int(os.environ.get("batch_size", 24))#cfg.batch_size
     gamma = 0.99 #cfg.gamma
@@ -216,8 +216,9 @@ def main():
     epsilon = float(os.environ.get("epsilon", 1.0))#cfg.epsilon
     min_epsilon = float(os.environ.get("min_epsilon", 0.05)) #cfg.min_epsilon
     anneal_steps = int(os.environ.get("anneal_steps", 50000))#cfg.anneal_steps
-    gamma1 = float(os.environ.get("gamma1", 0.0001))
+    gamma1 = float(os.environ.get("gamma1", 0.000075))
     gamma2 = float(os.environ.get("gamma2", 0.0003))
+
     anneal_episodes_graph_variance =float(os.environ.get("anneal_episodes_graph_variance",float('inf')))
     min_graph_variance = float(os.environ.get("min_graph_variance", 0.01))
 
