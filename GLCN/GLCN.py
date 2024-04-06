@@ -143,7 +143,7 @@ class GLCN(nn.Module):
                 A = F.sigmoid(h)
 
             D = torch.diag(torch.diag(A))
-            A = A-D
+            A = A-D.detach()
             if self.sampling ==True:
                 I = torch.eye(A.size(0)).to(device)
                 A = A+I
