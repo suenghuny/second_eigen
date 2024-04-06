@@ -427,7 +427,9 @@ class Agent:
                 q_tar = q_tar.squeeze(2)                                       # q.shape :      (batch_size, action_size)
                 avail_actions_next = torch.tensor(avail_actions_next, device = device).bool()
                 mask = avail_actions_next[:, agent_id]
+
                 q_tar = q_tar.masked_fill(mask == 0, float('-inf'))
+
                 q_tar_max = torch.max(q_tar, dim = 1)[0]
                 return q_tar_max
 
@@ -530,10 +532,10 @@ class Agent:
         td_target = rewards*self.num_agent + self.gamma* (1-dones)*q_tot_tar
 ###
         if cfg.given_edge == True:
-            rl_loss = F.huber_loss(q_tot, td_target.detach())
+            rl_loss = F.smooth_l1_loss(q_tot, td_target.detach())
             loss = rl_loss
         else:
-            rl_loss = F.huber_loss(q_tot, td_target.detach())
+            rl_loss = F.smooth_l1_loss(q_tot, td_target.detach())
             graph_loss = gamma1* lap_quad - gamma2 * gamma1 * sec_eig_upperbound
             loss = graph_loss+rl_loss
 
