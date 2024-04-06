@@ -316,7 +316,7 @@ class Agent:
                                list(self.func_obs.parameters()) + \
                                list(self.func_glcn.parameters()) + \
                                list(self.action_representation.parameters())
-        self.optimizer = optim.RMSprop(self.eval_params, lr=learning_rate)
+        self.optimizer = optim.AdamW(self.eval_params, lr=learning_rate)
 
 
     def save_model(self, file_dir, e):
@@ -535,8 +535,9 @@ class Agent:
             rl_loss = F.smooth_l1_loss(q_tot, td_target.detach())
             loss = rl_loss
         else:
-            rl_loss = F.smooth_l1_loss(q_tot, td_target.detach())
-            graph_loss = gamma1* lap_quad - gamma2 * gamma1 * sec_eig_upperbound
+
+            rl_loss = F.huber_loss(q_tot, td_target.detach())
+            graph_loss = gamma1 * lap_quad - gamma2 * gamma1 * sec_eig_upperbound
             loss = graph_loss+rl_loss
 
         loss.backward()
