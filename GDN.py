@@ -536,7 +536,7 @@ class Agent:
             loss = rl_loss
         else:
 
-            rl_loss = F.huber_loss(q_tot, td_target.detach())
+            rl_loss = F.mse_loss(q_tot, td_target.detach())
             graph_loss = gamma1 * lap_quad - gamma2 * gamma1 * sec_eig_upperbound
             loss = graph_loss+rl_loss
 

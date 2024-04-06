@@ -93,7 +93,6 @@ class GLCN(nn.Module):
             nn.init.xavier_uniform_(self.a_link.data, gain=1.414)
             self.k_hop = int(os.environ.get("k_hop",2))
             self.sampling = bool(os.environ.get("sampling", True))
-
             self.skip_connection = skip_connection
 
             if self.skip_connection == True:
