@@ -64,6 +64,8 @@ def evaluation(env, agent, num_eval):
     max_episode_len = env.episode_limit
     t = 0
     win_rates = 0
+    num_agent = env.get_env_info()["n_agents"]
+    action_history = torch.zeros([num_agent , env.get_env_info()["node_features"] + 5])
     for e in range(num_eval):
         env.reset()
         done = False
@@ -75,12 +77,14 @@ def evaluation(env, agent, num_eval):
             node_feature, edge_index_enemy, edge_index_ally, _, dead_masking = env.get_heterogeneous_graph(heterogeneous = heterogenous)
             avail_action = env.get_avail_actions()
 
+            agent_feature = torch.concat([torch.tensor(node_feature)[:num_agent,:-1], action_history.to('cpu')], dim = 1)
 
 
             n_agent = len(avail_action)
             if cfg.given_edge == True:
                 node_representation = agent.get_node_representation_temp(
                                                                      node_feature,
+                                                                     agent_feature,
                                                                      edge_index_enemy,
                                                                      edge_index_ally,
                                                                      n_agent=n_agent,
@@ -89,15 +93,15 @@ def evaluation(env, agent, num_eval):
             else:
                 node_representation, A, X = agent.get_node_representation_temp(
                                                                      node_feature,
+                                                                     agent_feature,
                                                                      edge_index_enemy,
                                                                      edge_index_ally,
                                                                     n_agent=n_agent,
                                                                     dead_masking=dead_masking,
                                                                     mini_batch=False)
-            #print(cfg.given_edge, node_representation)
 
             action_feature = env.get_action_feature()  # 차원 : action_size X n_action_feature
-            action = agent.sample_action(node_representation, action_feature, avail_action, epsilon=0)
+            action, action_history = agent.sample_action(node_representation, action_feature, avail_action, epsilon=0)
             reward, done, info = env.step(action)
             win_tag = True if done and 'battle_won' in info and info['battle_won'] else False
             episode_reward += reward
@@ -127,6 +131,11 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
     sec_eig_upperbound_list = list()
     rl_losses = list()
     q_tots = list()
+    # env.get_env_info()["node_features"] + 5
+    #env.get_env
+    num_agent = env.get_env_info()["n_agents"]
+    action_history = torch.zeros([num_agent , env.get_env_info()["node_features"] + 5])
+
     while (not done) and (step < max_episode_limit):
         """
         Note: edge index 추출에 세가지 방법
@@ -137,11 +146,15 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
 
 
         node_feature, edge_index_enemy, edge_index_ally, _, dead_masking = env.get_heterogeneous_graph(heterogeneous=heterogenous)
+
+        agent_feature = torch.concat([torch.tensor(node_feature)[:num_agent,:-1], action_history.to('cpu')], dim = 1)
+
         avail_action = env.get_avail_actions()
         n_agent = len(avail_action)
         if cfg.given_edge == True:
             node_representation = agent.get_node_representation_temp(
                 node_feature,
+                agent_feature,
                 edge_index_enemy,
                 edge_index_ally,
                 n_agent=n_agent,
@@ -150,6 +163,7 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
         else:
             node_representation, A, X = agent.get_node_representation_temp(
                 node_feature,
+                agent_feature,
                 edge_index_enemy,
                 edge_index_ally,
                 n_agent=n_agent,
@@ -157,11 +171,11 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
                 mini_batch=False)
 
         action_feature = env.get_action_feature()  # 차원 : action_size X n_action_feature
-        action = agent.sample_action(node_representation, action_feature, avail_action, epsilon)
+        action, action_history = agent.sample_action(node_representation, action_feature, avail_action, epsilon)
 
         reward, done, info = env.step(action)
         agent.buffer.memory(node_feature, action, action_feature, edge_index_enemy, edge_index_ally, reward,
-                            done, avail_action, dead_masking)
+                            done, avail_action, dead_masking, agent_feature.tolist())
         episode_reward += reward
 
         t += 1
@@ -301,13 +315,14 @@ def main():
                 rl_lo = []
                 q_t = []
                 r_df= pd.DataFrame(epi_r)
-                r_df.to_csv("\output\cumulative_reward_map_name_{}__lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.csv".format(map_name1,  learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
+                r_df.to_csv("cumulative_reward_map_name_{}__lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.csv".format(map_name1,  learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
             else:
                 r_df= pd.DataFrame(epi_r)
                 r_df.to_csv("cumulative_reward_map_name_{}__lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.csv".format(map_name1,  learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
 
         if eval == True:
             win_rate = evaluation(env, agent, 32)
+            win_rates.append(win_rate)
             if vessl_on == True:
                 vessl.log(step = t, payload = {'win_rate' : win_rate})
                 wr_df = pd.DataFrame(win_rates)

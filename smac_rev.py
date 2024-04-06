@@ -2022,6 +2022,7 @@ class StarCraft2Env(MultiAgentEnv):
         env_info["agent_features"] = self.ally_state_attr_names
         env_info["enemy_features"] = self.enemy_state_attr_names
         env_info["n_enemies"] = self.n_enemies
+        env_info["n_agents"] = self.n_agents
         return env_info
 
     def get_heterogeneous_graph(self, heterogeneous):
