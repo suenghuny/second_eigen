@@ -34,12 +34,8 @@ def get_graph_loss(X, A, num_nodes, e = False, anneal_episodes_graph_variance = 
     L = D-A
 
     # print(frobenius_norm - num_nodes ** 2 * var)
-    if anneal_episodes_graph_variance != False:
-        lap_quad = laplacian_quadratic.mean()
-        sec_eig_upperbound = (num_nodes / (num_nodes - 1)) ** 2 * (frobenius_norm - num_nodes ** 2 * var).mean()
-    else:
-        lap_quad = laplacian_quadratic.mean()
-        sec_eig_upperbound = (num_nodes / (num_nodes - 1)) ** 2 * (frobenius_norm - num_nodes ** 2 * var).mean()
+    lap_quad = laplacian_quadratic.mean()
+    sec_eig_upperbound = (num_nodes / (num_nodes - 1)) ** 2 * (frobenius_norm - num_nodes ** 2 * var).mean()
     return lap_quad, sec_eig_upperbound, L
 
 def get_agent_type_of_envs(envs):

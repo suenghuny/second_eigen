@@ -530,10 +530,10 @@ class Agent:
         td_target = rewards*self.num_agent + self.gamma* (1-dones)*q_tot_tar
 
         if cfg.given_edge == True:
-            rl_loss = F.smooth_l1_loss(q_tot, td_target.detach())
+            rl_loss = F.mse_loss(q_tot, td_target.detach())
             loss = rl_loss
         else:
-            rl_loss = F.smooth_l1_loss(q_tot, td_target.detach())
+            rl_loss = F.mse_loss(q_tot, td_target.detach())
             graph_loss = gamma1* lap_quad - gamma2 * gamma1 * sec_eig_upperbound
             loss = graph_loss+rl_loss
 
@@ -553,4 +553,4 @@ class Agent:
         if cfg.given_edge == True:
             return loss
         else:
-            return loss, lap_quad.tolist(), sec_eig_upperbound.tolist()
+            return loss, lap_quad.tolist(), sec_eig_upperbound.tolist(), rl_loss.tolist(), q_tot.tolist()

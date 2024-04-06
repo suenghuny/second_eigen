@@ -125,6 +125,8 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
     start = time.time()
     laplacian_quadratic_list = list()
     sec_eig_upperbound_list = list()
+    rl_losses = list()
+    q_tots = list()
     while (not done) and (step < max_episode_limit):
         """
         Note: edge index 추출에 세가지 방법
@@ -173,9 +175,11 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
             if cfg.given_edge == True:
                 loss = agent.learn(e = e)
             else:
-                loss, laplacian_quadratic, sec_eig_upperbound = agent.learn(e = e)
+                loss, laplacian_quadratic, sec_eig_upperbound, rl_loss, q_tot = agent.learn(e = e)
                 laplacian_quadratic_list.append(laplacian_quadratic)
                 sec_eig_upperbound_list.append(sec_eig_upperbound)
+                rl_losses.append(rl_loss)
+                q_tots.append(q_tot)
             losses.append(loss.detach().item())
         if epsilon >= min_epsilon:
             epsilon = epsilon - anneal_epsilon
@@ -187,8 +191,11 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
     if cfg.given_edge == True:
         return episode_reward,epsilon, t, eval
     else:
-        return episode_reward, epsilon, t, eval, np.mean(laplacian_quadratic_list), np.mean(
-            sec_eig_upperbound_list)
+        return episode_reward, epsilon, t, eval, \
+               np.mean(laplacian_quadratic_list), \
+               np.mean(sec_eig_upperbound_list), \
+               np.mean(rl_losses),\
+               np.mean(q_tots)
 
 
 
@@ -259,14 +266,22 @@ def main():
     t = 0
     epi_r = []
     win_rates = []
+    lap_quad = []
+    sec_eig = []
+    rl_lo = []
+    q_t = []
     for e in range(num_episode):
         if cfg.given_edge == True:
             episode_reward, epsilon, t, eval = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer)
         else:
-            episode_reward, epsilon, t, eval,laplacian_quadratic, second_eig_upperbound = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer)
+            episode_reward, epsilon, t, eval, laplacian_quadratic, second_eig_upperbound, rl_loss, q_tot = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer)
             print("upper_bound", second_eig_upperbound)
         initializer = False
         epi_r.append(episode_reward)
+        lap_quad.append(laplacian_quadratic)
+        sec_eig.append(second_eig_upperbound)
+        rl_lo.append(rl_loss)
+        q_t.append(q_tot)
         if e % 1000 == 0:#
             if vessl_on == True:
                 agent.save_model(output_dir, e)
@@ -275,7 +290,16 @@ def main():
         if e % 10 == 1:
             if vessl_on == True:
                 vessl.log(step = e, payload = {'reward' : np.mean(epi_r)})
+                vessl.log(step=e, payload={'lap_quad': np.mean(lap_quad)})
+                vessl.log(step=e, payload={'sec_eig': np.mean(sec_eig)})
+                vessl.log(step=e, payload={'rl_lo': np.mean(rl_lo)})
+                vessl.log(step=e, payload={'q_t': np.mean(q_t)})
                 epi_r = []
+                win_rates = []
+                lap_quad = []
+                sec_eig = []
+                rl_lo = []
+                q_t = []
                 r_df= pd.DataFrame(epi_r)
                 r_df.to_csv("\output\cumulative_reward_map_name_{}__lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.csv".format(map_name1,  learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
             else:
