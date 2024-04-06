@@ -224,7 +224,7 @@ def main():
     hidden_size_Q = int(os.environ.get("hidden_size_Q",128)) #cfg.hidden_size_Q         # GAT 해당
     n_representation_obs = int(os.environ.get("n_representation_obs", 64))#cfg.n_representation_obs  # GAT 해당
     n_representation_action = int(os.environ.get("n_representation_action", 56))  # cfg.n_representation_comm
-    n_representation_comm = int(os.environ.get("n_representation_comm", 48))#cfg.n_representation_comm
+    n_representation_comm = int(os.environ.get("n_representation_comm", 54))#cfg.n_representation_comm
     graph_embedding = int(os.environ.get("graph_embedding", 64))
     graph_embedding_comm = int(os.environ.get("graph_embedding_comm", 84))
     buffer_size = int(os.environ.get("buffer_size", 100000))#cfg.buffer_size
