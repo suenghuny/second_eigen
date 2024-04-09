@@ -321,17 +321,21 @@ class Agent:
                                list(self.func_glcn2.parameters()) + \
                                list(self.action_representation.parameters())
         else:
-            self.eval_params = list(self.VDN.parameters()) + \
-                               list(self.Q.parameters()) + \
-                               list(self.node_representation.parameters()) + \
-                               list(self.node_representation_comm.parameters()) + \
-                               list(self.func_obs.parameters()) + \
-                               list(self.func_glcn.parameters()) + \
-                               list(self.action_representation.parameters())
+            self.eval_params = [p for n, p in self.func_glcn.named_parameters() if n != 'a_link'] + \
+                       list(self.VDN.parameters()) + \
+                       list(self.Q.parameters()) + \
+                       list(self.node_representation.parameters()) + \
+                       list(self.node_representation_comm.parameters()) + \
+                       list(self.func_obs.parameters()) + \
+                       list(self.action_representation.parameters())
 
-            self.func_glcn.a_link.data
+            self.graph_params = [p for n, p in self.func_glcn.named_parameters() if n == 'a_link']
 
-        self.optimizer = optim.RMSprop(self.eval_params, lr=learning_rate)
+        param_groups = [
+            {'params': self.eval_params},
+            {'params': self.graph_params, 'lr': learning_rate_graph}
+        ]
+        self.optimizer = optim.RMSprop(param_groups, lr=learning_rate)
 
 
     def save_model(self, file_dir, e):
@@ -562,6 +566,7 @@ class Agent:
 
         loss.backward()
         torch.nn.utils.clip_grad_norm_(self.eval_params, float(os.environ.get("grad_clip", 10)))
+        torch.nn.utils.clip_grad_norm_(self.graph_params, float(os.environ.get("grad_clip_graph", 10)))
         self.optimizer.step()
         self.optimizer.zero_grad()
 
