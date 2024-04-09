@@ -579,7 +579,7 @@ class Agent:
         self.optimizer.step()
         self.optimizer.zero_grad()
 
-
+        #print(loss, lap_quad.tolist(), sec_eig_upperbound.tolist(), rl_loss.tolist(), q_tot.tolist())
         #self.Q_tar.load_state_dict(self.Q.state_dict())
 
         tau = 1e-4

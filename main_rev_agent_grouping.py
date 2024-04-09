@@ -298,13 +298,14 @@ def main():
         sec_eig.append(second_eig_upperbound)
         rl_lo.append(rl_loss)
         q_t.append(q_tot)
+        #print(laplacian_quadratic, second_eig_upperbound, rl_loss, q_tot)
         if e % 1000 == 0:#
             if vessl_on == True:
                 agent.save_model(output_dir, e)
             else:
                 agent.save_model(output_dir, e)
         if e % 10 == 1:
-            if vessl_on == True:
+            if (vessl_on == True) and (e>train_start):
                 vessl.log(step = e, payload = {'reward' : np.mean(epi_r)})
                 vessl.log(step=e, payload={'lap_quad': np.mean(lap_quad)})
                 vessl.log(step=e, payload={'sec_eig': np.mean(sec_eig)})
@@ -319,6 +320,13 @@ def main():
                 r_df= pd.DataFrame(epi_r)
                 r_df.to_csv("cumulative_reward_map_name_{}__lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.csv".format(map_name1,  learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
             else:
+                #print(np.mean(epi_r),np.mean(lap_quad),np.mean(sec_eig), np.mean(rl_lo),           np.mean(q_t))
+                epi_r = []
+                win_rates = []
+                lap_quad = []
+                sec_eig = []
+                rl_lo = []
+                q_t = []
                 r_df= pd.DataFrame(epi_r)
                 r_df.to_csv("cumulative_reward_map_name_{}__lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.csv".format(map_name1,  learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
 
