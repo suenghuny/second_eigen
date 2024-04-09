@@ -537,7 +537,7 @@ class Agent:
 
         else:
             ratio = torch.tensor([1.0]).to(device)
-        eps_clip = float(os.environ.get("eps_clip", 0.1))
+        eps_clip = float(os.environ.get("eps_clip", 0.2))
         surr1_lap = ratio * lap_quad
         surr2_lap = torch.clamp(ratio, 1 - eps_clip, 1 + eps_clip) * lap_quad
         surr_lap = torch.min(surr1_lap, surr2_lap).mean()
