@@ -328,6 +328,9 @@ class Agent:
                                list(self.func_obs.parameters()) + \
                                list(self.func_glcn.parameters()) + \
                                list(self.action_representation.parameters())
+
+            self.func_glcn.a_link.data
+
         self.optimizer = optim.RMSprop(self.eval_params, lr=learning_rate)
 
 
@@ -565,7 +568,7 @@ class Agent:
 
         #self.Q_tar.load_state_dict(self.Q.state_dict())
 
-        tau = 5e-4
+        tau = 1e-4
         for target_param, local_param in zip(self.Q_tar.parameters(), self.Q.parameters()):
             target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
         for target_param, local_param in zip(self.VDN_target.parameters(), self.VDN.parameters()):
