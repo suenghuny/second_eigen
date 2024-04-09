@@ -116,7 +116,8 @@ def evaluation(env, agent, num_eval):
 
 
 
-def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer):
+def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer,
+          laplacian_quadratic = None):
     max_episode_limit = env.episode_limit
     if initializer == False:
         env.reset()
@@ -189,7 +190,10 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
             if cfg.given_edge == True:
                 loss = agent.learn(e = e)
             else:
-                loss, laplacian_quadratic, sec_eig_upperbound, rl_loss, q_tot = agent.learn(e = e)
+                if e==train_start:
+                    loss, laplacian_quadratic, sec_eig_upperbound, rl_loss, q_tot = agent.learn(e = e)
+                else:
+                    loss, laplacian_quadratic, sec_eig_upperbound, rl_loss, q_tot = agent.learn(e=e,lap_quad_old=laplacian_quadratic)
                 laplacian_quadratic_list.append(laplacian_quadratic)
                 sec_eig_upperbound_list.append(sec_eig_upperbound)
                 rl_losses.append(rl_loss)
@@ -209,7 +213,8 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
                np.mean(laplacian_quadratic_list), \
                np.mean(sec_eig_upperbound_list), \
                np.mean(rl_losses),\
-               np.mean(q_tots)
+               np.mean(q_tots),\
+               laplacian_quadratic
 
 
 
@@ -231,7 +236,7 @@ def main():
     batch_size = int(os.environ.get("batch_size", 24))#cfg.batch_size
     gamma = 0.99 #cfg.gamma
     learning_rate = float(os.environ.get("learning_rate", 5.0e-4))#cfg.lr
-    learning_rate_graph = float(os.environ.get("learning_rate_graph", 1e-5))  # cfg.lr
+    learning_rate_graph = float(os.environ.get("learning_rate_graph", 5.0e-4))  # cfg.lr
     num_episode = 140000 #cfg.num_episode
     train_start = int(os.environ.get("train_start", 10)) # cfg.train_start
     epsilon = float(os.environ.get("epsilon", 1.0)) #cfg.epsilon
@@ -288,7 +293,7 @@ def main():
         if cfg.given_edge == True:
             episode_reward, epsilon, t, eval = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer)
         else:
-            episode_reward, epsilon, t, eval, laplacian_quadratic, second_eig_upperbound, rl_loss, q_tot = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer)
+            episode_reward, epsilon, t, eval, laplacian_quadratic, second_eig_upperbound, rl_loss, q_tot, lap_quad_old = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer)
             print("upper_bound", second_eig_upperbound)
         initializer = False
         epi_r.append(episode_reward)
