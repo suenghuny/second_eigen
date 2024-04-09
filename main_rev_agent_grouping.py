@@ -190,10 +190,7 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
             if cfg.given_edge == True:
                 loss = agent.learn(e = e)
             else:
-                if e==train_start:
-                    loss, laplacian_quadratic, sec_eig_upperbound, rl_loss, q_tot = agent.learn(e = e)
-                else:
-                    loss, laplacian_quadratic, sec_eig_upperbound, rl_loss, q_tot = agent.learn(e=e,lap_quad_old=laplacian_quadratic)
+                loss, laplacian_quadratic, sec_eig_upperbound, rl_loss, q_tot = agent.learn(e=e,lap_quad_old=laplacian_quadratic)
                 laplacian_quadratic_list.append(laplacian_quadratic)
                 sec_eig_upperbound_list.append(sec_eig_upperbound)
                 rl_losses.append(rl_loss)

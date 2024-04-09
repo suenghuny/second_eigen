@@ -530,14 +530,13 @@ class Agent:
             gamma1 = self.gamma1
             gamma2 = self.gamma2
             lap_quad, sec_eig_upperbound, L = get_graph_loss(X, A, num_nodes, e, self.anneal_episodes_graph_variance,self.min_graph_variance)
-
         if lap_quad_old != None:
             lap_quad_old = torch.tensor(lap_quad_old, dtype = torch.float).to(device)
             ratio = torch.exp(torch.log(lap_quad.mean().detach()) - torch.log(lap_quad_old).detach())  # a/b == exp(log(a)-log(b))
 
         else:
             ratio = torch.tensor([1.0]).to(device)
-        eps_clip = float(os.environ.get("eps_clip", 0.2))
+        eps_clip = float(os.environ.get("eps_clip", 0.3))
         surr1_lap = ratio * lap_quad
         surr2_lap = torch.clamp(ratio, 1 - eps_clip, 1 + eps_clip) * lap_quad
         surr_lap = torch.min(surr1_lap, surr2_lap).mean()
