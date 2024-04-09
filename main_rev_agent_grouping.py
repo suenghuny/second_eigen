@@ -233,7 +233,7 @@ def main():
     graph_embedding = int(os.environ.get("graph_embedding", 64))
     graph_embedding_comm = int(os.environ.get("graph_embedding_comm", 84))
     buffer_size = int(os.environ.get("buffer_size", 100000))#cfg.buffer_size
-    batch_size = int(os.environ.get("batch_size", 24))#cfg.batch_size
+    batch_size = int(os.environ.get("batch_size", 32))#cfg.batch_size
     gamma = 0.99 #cfg.gamma
     learning_rate = float(os.environ.get("learning_rate", 5.0e-4))#cfg.lr
     learning_rate_graph = float(os.environ.get("learning_rate_graph", 5.0e-4))  # cfg.lr
