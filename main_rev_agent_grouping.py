@@ -305,7 +305,7 @@ def main():
             else:
                 agent.save_model(output_dir, e)
         if e % 10 == 1:
-            if (vessl_on == True) and (e>train_start):
+            if vessl_on == True:
                 vessl.log(step = e, payload = {'reward' : np.mean(epi_r)})
                 vessl.log(step=e, payload={'lap_quad': np.mean(lap_quad)})
                 vessl.log(step=e, payload={'sec_eig': np.mean(sec_eig)})
