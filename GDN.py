@@ -602,6 +602,8 @@ class Agent:
             rl_loss = F.mse_loss(q_tot, td_target.detach())
             loss = rl_loss
         else:
+            if e == 12:
+                print(loss_func)
             if loss_func == 'huber':
                 rl_loss = F.huber_loss(q_tot, td_target.detach())
             else:
