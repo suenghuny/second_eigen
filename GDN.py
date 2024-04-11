@@ -602,11 +602,15 @@ class Agent:
         q_tot = self.VDN(q_tot)
         q_tot_tar = self.VDN_target(q_tot_tar)
         td_target = rewards*self.num_agent + self.gamma* (1-dones)*q_tot_tar
+        loss_func = str(os.environ.get("loss_func", "huber"))
         if cfg.given_edge == True:
             rl_loss = F.mse_loss(q_tot, td_target.detach())
             loss = rl_loss
         else:
-            rl_loss = F.huber_loss(q_tot, td_target.detach())
+            if loss_func == 'huber':
+                rl_loss = F.huber_loss(q_tot, td_target.detach())
+            else:
+                rl_loss = F.mse_loss(q_tot, td_target.detach())
             graph_loss = gamma1 * lap_quad - gamma2 * gamma1 * sec_eig_upperbound
             loss = graph_loss+rl_loss
 
@@ -615,6 +619,8 @@ class Agent:
         torch.nn.utils.clip_grad_norm_(self.graph_params, float(os.environ.get("grad_clip_graph", 0.8)))
         self.optimizer.step()
         self.optimizer.zero_grad()
+
+
 
         tau = 1e-4
         for target_param, local_param in zip(self.Q_tar.parameters(), self.Q.parameters()):
