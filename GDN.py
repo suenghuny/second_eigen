@@ -68,7 +68,7 @@ class NodeEmbedding(nn.Module):
         torch.nn.init.xavier_uniform_(self.fcn_3.weight)
 
     def forward(self, node_feature):
-        x = F.relu(self.bn_1(self.fcn_1(node_feature)))
+        x = F.relu(self.fcn_1(node_feature))
         x = F.relu(self.fcn_2(x))
         node_representation = self.fcn_3(x)
         return node_representation
@@ -396,15 +396,15 @@ class Agent:
             node_size = node_feature.shape[1]
             agent_size = agent_feature.shape[1]
 
-            node_feature = node_feature.reshape(batch_size*node_size, -1)
-            agent_feature = agent_feature.reshape(batch_size*agent_size, -1)
+            # node_feature = node_feature.reshape(batch_size*node_size, -1)
+            # agent_feature = agent_feature.reshape(batch_size*agent_size, -1)
 
 
             node_embedding_obs  = self.node_representation(node_feature)
             node_embedding_comm = self.node_representation_comm(agent_feature)
 
-            node_embedding_obs = node_embedding_obs.reshape(batch_size, node_size, -1)
-            node_embedding_comm = node_embedding_comm.reshape(batch_size, agent_size, -1)
+            # node_embedding_obs = node_embedding_obs.reshape(batch_size, node_size, -1)
+            # node_embedding_comm = node_embedding_comm.reshape(batch_size, agent_size, -1)
 
             node_embedding_obs = self.func_obs(X = node_embedding_obs, A = edge_index_obs, mini_batch = mini_batch)[:, :n_agent,:]
             cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim=2)
@@ -440,9 +440,9 @@ class Agent:
             action_size = action_features.shape[1]
             obs_n = obs[:, agent_id].unsqueeze(1).expand([self.batch_size, action_size, self.graph_embedding_comm])
             # print(action_features.shape)
-            action_features = action_features.reshape(self.batch_size*action_size, -1)
+            #action_features = action_features.reshape(self.batch_size*action_size, -1)
             action_embedding = self.action_representation(action_features)
-            action_embedding = action_embedding.reshape(self.batch_size, action_size, -1)
+            #action_embedding = action_embedding.reshape(self.batch_size, action_size, -1)
             obs_and_action = torch.concat([obs_n, action_embedding], dim=2)
             obs_and_action = obs_and_action.float()
 
@@ -463,9 +463,9 @@ class Agent:
                 action_size = action_features_next.shape[1]
                 obs_next = obs_next[:, agent_id].unsqueeze(1).expand([self.batch_size, action_size, self.graph_embedding_comm])
 
-                action_features_next = action_features_next.reshape(self.batch_size*action_size, -1)
+                #action_features_next = action_features_next.reshape(self.batch_size*action_size, -1)
                 action_embedding_next = self.action_representation(action_features_next)
-                action_embedding_next = action_embedding_next.reshape(self.batch_size, action_size, -1)
+                #action_embedding_next = action_embedding_next.reshape(self.batch_size, action_size, -1)
 
                 obs_and_action_next = torch.concat([obs_next, action_embedding_next], dim=2)
                 obs_and_action_next = obs_and_action_next.float()
@@ -503,12 +503,9 @@ class Agent:
             obs_cat_action = torch.concat([obs, action_embedding], dim = 1)    # 차원 : action_size X
             obs_cat_action = obs_cat_action.float()
             Q = self.Q(obs_cat_action).squeeze(1)                                                # 차원 : action_size X 1
-
             Q = Q.masked_fill(mask[n, :]==0, float('-inf'))
             greedy_u = torch.argmax(Q)
-
             mask_n = np.array(avail_action[n], dtype=np.float64)
-
             if np.random.uniform(0, 1) >= epsilon:
                 u = greedy_u
                 action.append(u.item())
@@ -516,9 +513,7 @@ class Agent:
             else:
                 u = np.random.choice(action_space, p=mask_n / np.sum(mask_n))
                 action.append(u)
-
                 selected_action_feature_list.append(action_feature[u])
-        #print(selected_action_feature_list)
         return action, torch.stack(selected_action_feature_list)
 
 
@@ -552,8 +547,6 @@ class Agent:
         action_feature :     batch_size x action_size x action_feature_size
         avail_actions_next : batch_size x num_agents x action_size 
         """
-        # print(torch.tensor(action_features).shape)
-        # print(torch.tensor(avail_actions_next).shape)
         num_nodes = torch.tensor(node_features).shape[1]
         n_agent = torch.tensor(avail_actions_next).shape[1]
 
