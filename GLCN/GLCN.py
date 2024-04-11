@@ -284,4 +284,3 @@ class GLCN(nn.Module):
                 A = torch.stack(A_placeholder)
                 D = torch.stack(D_placeholder)
                 return H, A, X, D
-

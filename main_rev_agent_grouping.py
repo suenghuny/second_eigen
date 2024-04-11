@@ -116,8 +116,7 @@ def evaluation(env, agent, num_eval):
 
 
 
-def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer,
-          laplacian_quadratic = None):
+def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer):
     max_episode_limit = env.episode_limit
     if initializer == False:
         env.reset()
@@ -190,7 +189,7 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
             if cfg.given_edge == True:
                 loss = agent.learn(e = e)
             else:
-                loss, laplacian_quadratic, sec_eig_upperbound, rl_loss, q_tot = agent.learn(e=e,lap_quad_old=laplacian_quadratic)
+                loss, laplacian_quadratic, sec_eig_upperbound, rl_loss, q_tot = agent.learn(e = e)
                 laplacian_quadratic_list.append(laplacian_quadratic)
                 sec_eig_upperbound_list.append(sec_eig_upperbound)
                 rl_losses.append(rl_loss)
@@ -210,8 +209,7 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
                np.mean(laplacian_quadratic_list), \
                np.mean(sec_eig_upperbound_list), \
                np.mean(rl_losses),\
-               np.mean(q_tots),\
-               laplacian_quadratic
+               np.mean(q_tots)
 
 
 
@@ -224,23 +222,23 @@ def main():
     hidden_size_comm = int(os.environ.get("hidden_size_comm", 84))#cfg.hidden_size_comm
     hidden_size_action = int(os.environ.get("hidden_size_action", 84))  # cfg.hidden_size_comm
     hidden_size_Q = int(os.environ.get("hidden_size_Q",128)) #cfg.hidden_size_Q         # GAT 해당
-    n_representation_obs = int(os.environ.get("n_representation_obs", 64))#cfg.n_representation_obs  # GAT 해당
+    n_representation_obs = int(os.environ.get("n_representation_obs", 54))#cfg.n_representation_obs  # GAT 해당
     n_representation_action = int(os.environ.get("n_representation_action", 56))  # cfg.n_representation_comm
     n_representation_comm = int(os.environ.get("n_representation_comm", 48))#cfg.n_representation_comm
-    graph_embedding = int(os.environ.get("graph_embedding", 64))
+    graph_embedding = int(os.environ.get("graph_embedding", 56))
     graph_embedding_comm = int(os.environ.get("graph_embedding_comm", 84))
     buffer_size = int(os.environ.get("buffer_size", 100000))#cfg.buffer_size
-    batch_size = int(os.environ.get("batch_size", 32))#cfg.batch_size
+    batch_size = int(os.environ.get("batch_size", 24))#cfg.batch_size
     gamma = 0.99 #cfg.gamma
     learning_rate = float(os.environ.get("learning_rate", 5.0e-4))#cfg.lr
-    learning_rate_graph = float(os.environ.get("learning_rate_graph", 5.0e-4))  # cfg.lr
+    learning_rate_graph = float(os.environ.get("learning_rate_graph", 7e-5))  # cfg.lr
     num_episode = 140000 #cfg.num_episode
-    train_start = int(os.environ.get("train_start", 10)) # cfg.train_start
-    epsilon = float(os.environ.get("epsilon", 1.0)) #cfg.epsilon
+    train_start = int(os.environ.get("train_start", 10))# cfg.train_start
+    epsilon = float(os.environ.get("epsilon", 1.0))#cfg.epsilon
     min_epsilon = float(os.environ.get("min_epsilon", 0.05)) #cfg.min_epsilon
     anneal_steps = int(os.environ.get("anneal_steps", 50000))#cfg.anneal_steps
-    gamma1 = float(os.environ.get("gamma1", 0.0005))
-    gamma2 = float(os.environ.get("gamma2", 0.001))
+    gamma1 = float(os.environ.get("gamma1", 0.0001))
+    gamma2 = float(os.environ.get("gamma2", 0.0005))
 
     anneal_episodes_graph_variance =float(os.environ.get("anneal_episodes_graph_variance",float('inf')))
     min_graph_variance = float(os.environ.get("min_graph_variance", 0.01))
@@ -290,7 +288,7 @@ def main():
         if cfg.given_edge == True:
             episode_reward, epsilon, t, eval = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer)
         else:
-            episode_reward, epsilon, t, eval, laplacian_quadratic, second_eig_upperbound, rl_loss, q_tot, lap_quad_old = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer)
+            episode_reward, epsilon, t, eval, laplacian_quadratic, second_eig_upperbound, rl_loss, q_tot = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer)
             print("upper_bound", second_eig_upperbound)
         initializer = False
         epi_r.append(episode_reward)
@@ -298,7 +296,6 @@ def main():
         sec_eig.append(second_eig_upperbound)
         rl_lo.append(rl_loss)
         q_t.append(q_tot)
-        #print(laplacian_quadratic, second_eig_upperbound, rl_loss, q_tot)
         if e % 1000 == 0:#
             if vessl_on == True:
                 agent.save_model(output_dir, e)
@@ -320,13 +317,6 @@ def main():
                 r_df= pd.DataFrame(epi_r)
                 r_df.to_csv("cumulative_reward_map_name_{}__lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.csv".format(map_name1,  learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
             else:
-                #print(np.mean(epi_r),np.mean(lap_quad),np.mean(sec_eig), np.mean(rl_lo),           np.mean(q_t))
-                epi_r = []
-                win_rates = []
-                lap_quad = []
-                sec_eig = []
-                rl_lo = []
-                q_t = []
                 r_df= pd.DataFrame(epi_r)
                 r_df.to_csv("cumulative_reward_map_name_{}__lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.csv".format(map_name1,  learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
 
@@ -348,4 +338,3 @@ def main():
 
 
 main()
-

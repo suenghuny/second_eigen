@@ -495,7 +495,7 @@ class Agent:
 
 
 
-    def learn(self, e, lap_quad_old = None):
+    def learn(self, e):
         node_features, actions, action_features, edge_indices_enemy, edge_indices_ally, rewards, dones, node_features_next, action_features_next, edge_indices_enemy_next, edge_indices_ally_next, avail_actions_next,dead_masking, agent_feature, agent_feature_next = self.buffer.sample()
 
         """
@@ -530,16 +530,8 @@ class Agent:
             gamma1 = self.gamma1
             gamma2 = self.gamma2
             lap_quad, sec_eig_upperbound, L = get_graph_loss(X, A, num_nodes, e, self.anneal_episodes_graph_variance,self.min_graph_variance)
-        if lap_quad_old != None:
-            lap_quad_old = torch.tensor(lap_quad_old, dtype = torch.float).to(device)
-            ratio = torch.exp(torch.log(lap_quad.mean().detach()) - torch.log(lap_quad_old).detach())  # a/b == exp(log(a)-log(b))
 
-        else:
-            ratio = torch.tensor([1.0]).to(device)
-        eps_clip = float(os.environ.get("eps_clip", 0.3))
 
-        surr1_lap = torch.clamp(ratio, 1 - eps_clip, 1 + eps_clip) * lap_quad
-        surr_lap = surr1_lap.mean()
 
         dones = torch.tensor(dones, device = device, dtype = torch.float)
         rewards = torch.tensor(rewards, device = device, dtype = torch.float)
@@ -562,24 +554,23 @@ class Agent:
         q_tot = self.VDN(q_tot)
         q_tot_tar = self.VDN_target(q_tot_tar)
         td_target = rewards*self.num_agent + self.gamma* (1-dones)*q_tot_tar
-
-
 ###
         if cfg.given_edge == True:
             rl_loss = F.mse_loss(q_tot, td_target.detach())
             loss = rl_loss
         else:
-            rl_loss = F.huber_loss(q_tot, td_target.detach())
-            graph_loss = - gamma2 * gamma1 * sec_eig_upperbound
+
+            rl_loss = F.mse_loss(q_tot, td_target.detach())
+            graph_loss = gamma1 * lap_quad - gamma2 * gamma1 * sec_eig_upperbound
             loss = graph_loss+rl_loss
 
         loss.backward()
         torch.nn.utils.clip_grad_norm_(self.eval_params, float(os.environ.get("grad_clip", 10)))
-        torch.nn.utils.clip_grad_norm_(self.graph_params, float(os.environ.get("grad_clip_graph", 10)))
+        torch.nn.utils.clip_grad_norm_(self.graph_params, float(os.environ.get("grad_clip_graph", 0.8)))
         self.optimizer.step()
         self.optimizer.zero_grad()
 
-        #print(loss, lap_quad.tolist(), sec_eig_upperbound.tolist(), rl_loss.tolist(), q_tot.tolist())
+
         #self.Q_tar.load_state_dict(self.Q.state_dict())
 
         tau = 1e-4
