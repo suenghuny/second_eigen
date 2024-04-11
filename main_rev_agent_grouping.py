@@ -131,24 +131,16 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
     sec_eig_upperbound_list = list()
     rl_losses = list()
     q_tots = list()
-    # env.get_env_info()["node_features"] + 5
-    #env.get_env
     num_agent = env.get_env_info()["n_agents"]
     action_history = torch.zeros([num_agent , env.get_env_info()["node_features"] + 5])
-
     while (not done) and (step < max_episode_limit):
         """
         Note: edge index 추출에 세가지 방법
         1. enemy_visibility에 대한 adjacency matrix 추출(self loop 포함) / 아군 유닛의 시야로부터 적에 대한 visibility relation
         2. ally_communication에 대한에 대한 adjacency matrix 추출                 / 아군 유닛의 시야로부터 적에 대한 visibility
         """
-
-
-
         node_feature, edge_index_enemy, edge_index_ally, _, dead_masking = env.get_heterogeneous_graph(heterogeneous=heterogenous)
-
         agent_feature = torch.concat([torch.tensor(node_feature)[:num_agent,:-1], action_history.to('cpu')], dim = 1)
-
         avail_action = env.get_avail_actions()
         n_agent = len(avail_action)
         if cfg.given_edge == True:
@@ -182,9 +174,6 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
         step += 1
         if (t % 5000 == 0) and (t >0):
             eval = True
-        # if (e% 200==0) and (e>0):
-        #     agent.Q_tar.load_state_dict(agent.Q.state_dict())
-
         if e >= train_start:
             if cfg.given_edge == True:
                 loss = agent.learn(e = e)
@@ -227,10 +216,10 @@ def main():
     n_representation_comm = int(os.environ.get("n_representation_comm", 48))#cfg.n_representation_comm
     graph_embedding = int(os.environ.get("graph_embedding", 56))
     graph_embedding_comm = int(os.environ.get("graph_embedding_comm", 84))
-    buffer_size = int(os.environ.get("buffer_size", 100000))#cfg.buffer_size
-    batch_size = int(os.environ.get("batch_size", 24))#cfg.batch_size
-    gamma = 0.99 #cfg.gamma
-    learning_rate = float(os.environ.get("learning_rate", 5.0e-4))#cfg.lr
+    buffer_size = int(os.environ.get("buffer_size", 100000))       # cfg.buffer_size
+    batch_size = int(os.environ.get("batch_size", 24))             # cfg.batch_size
+    gamma = 0.99                                                            # cfg.gamma
+    learning_rate = float(os.environ.get("learning_rate", 5.0e-4))            # cfg.lr
     learning_rate_graph = float(os.environ.get("learning_rate_graph", 7e-5))  # cfg.lr
     num_episode = 140000 #cfg.num_episode
     train_start = int(os.environ.get("train_start", 10))# cfg.train_start
@@ -274,12 +263,9 @@ def main():
                    min_graph_variance = min_graph_variance,
                    env = None
                   )
-
-
     t = 0
     epi_r = []
     win_rates = []
-    win_rates2 = []
     lap_quad = []
     sec_eig = []
     rl_lo = []
@@ -301,15 +287,15 @@ def main():
                 agent.save_model(output_dir, e)
             else:
                 agent.save_model(output_dir, e)
+
         if e % 10 == 1:
             if vessl_on == True:
                 vessl.log(step = e, payload = {'reward' : np.mean(epi_r)})
-                vessl.log(step=e, payload={'lap_quad': np.mean(lap_quad)})
-                vessl.log(step=e, payload={'sec_eig': np.mean(sec_eig)})
-                vessl.log(step=e, payload={'rl_lo': np.mean(rl_lo)})
-                vessl.log(step=e, payload={'q_t': np.mean(q_t)})
+                vessl.log(step = e, payload={'lap_quad': np.mean(lap_quad)})
+                vessl.log(step = e, payload={'sec_eig': np.mean(sec_eig)})
+                vessl.log(step = e, payload={'rl_lo': np.mean(rl_lo)})
+                vessl.log(step = e, payload={'q_t': np.mean(q_t)})
                 epi_r = []
-                win_rates = []
                 lap_quad = []
                 sec_eig = []
                 rl_lo = []
@@ -319,11 +305,9 @@ def main():
             else:
                 r_df= pd.DataFrame(epi_r)
                 r_df.to_csv(output_dir+"cumulative_reward_map_name_{}__lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.csv".format(map_name1,  learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
-
         if eval == True:
             win_rate = evaluation(env, agent, 32)
             win_rates.append(win_rate)
-
             if vessl_on == True:
                 vessl.log(step = t, payload = {'win_rate' : win_rate})
                 wr_df = pd.DataFrame(win_rates)

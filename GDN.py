@@ -31,9 +31,13 @@ class Network(nn.Module):
         self.obs_and_action_size = obs_and_action_size
         print(obs_and_action_size, hidden_size_q)
         self.fcn_1 = nn.Linear(obs_and_action_size, hidden_size_q)
+        self.bn_1 = nn.BatchNorm1d(hidden_size_q)
         self.fcn_2 = nn.Linear(hidden_size_q, int(hidden_size_q/2))
+        self.bn_2 = nn.BatchNorm1d(int(hidden_size_q/2))
         self.fcn_3 = nn.Linear(int(hidden_size_q/2), int(hidden_size_q/4))
+        self.bn_3 = nn.BatchNorm1d(int(hidden_size_q / 4))
         self.fcn_4 = nn.Linear(int(hidden_size_q/4), int(hidden_size_q/8))
+        self.bn_4 = nn.BatchNorm1d(int(hidden_size_q / 8))
         self.fcn_5 = nn.Linear(int(hidden_size_q/8), 1)
         torch.nn.init.xavier_uniform_(self.fcn_1.weight)
         torch.nn.init.xavier_uniform_(self.fcn_2.weight)
@@ -43,10 +47,10 @@ class Network(nn.Module):
 
     def forward(self, obs_and_action):
 
-        x = F.relu(self.fcn_1(obs_and_action))
-        x = F.relu(self.fcn_2(x))
-        x = F.relu(self.fcn_3(x))
-        x = F.relu(self.fcn_4(x))
+        x = F.relu(self.bn_1(self.fcn_1(obs_and_action)))
+        x = F.relu(self.bn_2(self.fcn_2(x)))
+        x = F.relu(self.bn_3(self.fcn_3(x)))
+        x = F.relu(self.bn_4(self.fcn_4(x)))
         q = self.fcn_5(x)
         return q
 
@@ -55,15 +59,16 @@ class NodeEmbedding(nn.Module):
         super(NodeEmbedding, self).__init__()
         self.feature_size = feature_size
         self.fcn_1 = nn.Linear(feature_size, hidden_size+10)
+        self.bn_1 = nn.BatchNorm1d(hidden_size+10)
         self.fcn_2 = nn.Linear(hidden_size+10, hidden_size)
+
         self.fcn_3 = nn.Linear(hidden_size, n_representation_obs)
         torch.nn.init.xavier_uniform_(self.fcn_1.weight)
         torch.nn.init.xavier_uniform_(self.fcn_2.weight)
         torch.nn.init.xavier_uniform_(self.fcn_3.weight)
 
     def forward(self, node_feature):
-        #node_feature = node_feature.double()
-        x = F.relu(self.fcn_1(node_feature))
+        x = F.relu(self.bn_1(self.fcn_1(node_feature)))
         x = F.relu(self.fcn_2(x))
         node_representation = self.fcn_3(x)
         return node_representation
@@ -81,7 +86,6 @@ class Replay_Buffer:
         self.agent_id = np.eye(self.num_agent).tolist()
         self.batch_size = batch_size
         self.step_count = 0
-
 
     def pop(self):
         self.buffer.pop()
@@ -278,6 +282,7 @@ class Agent:
         #                                            hidden_size=hidden_size_obs,
         #                                            n_representation_obs=n_representation_obs).to(device)  # 수정사항
 
+        #
 
         self.node_representation = NodeEmbedding(feature_size=self.feature_size,
                                                    hidden_size=self.hidden_size_obs,
@@ -351,8 +356,9 @@ class Agent:
                         },
                        file_dir+ "episode%d.pt" % e)
 
-
-
+    # self.node_representation
+    # self.node_representation_comm
+    # self.action_representation
     def load_model(self, path):
         self = torch.load(path)
 
@@ -364,6 +370,7 @@ class Agent:
             with torch.no_grad():
                 node_feature = torch.tensor(node_feature, dtype=torch.float,device=device)
                 agent_feature = agent_feature.to(device)
+
                 node_embedding_obs  = self.node_representation(node_feature)
                 node_embedding_comm = self.node_representation_comm(agent_feature)
 
@@ -385,11 +392,21 @@ class Agent:
         else:
             node_feature = torch.tensor(node_feature, dtype=torch.float, device=device)
             agent_feature = torch.tensor(agent_feature, dtype=torch.float, device=device)
+            batch_size = node_feature.shape[0]
+            node_size = node_feature.shape[1]
+            agent_size = agent_feature.shape[1]
+
+            node_feature = node_feature.reshape(batch_size*node_size, -1)
+            agent_feature = agent_feature.reshape(batch_size*agent_size, -1)
+
+
             node_embedding_obs  = self.node_representation(node_feature)
             node_embedding_comm = self.node_representation_comm(agent_feature)
 
+            node_embedding_obs = node_embedding_obs.reshape(batch_size, node_size, -1)
+            node_embedding_comm = node_embedding_comm.reshape(batch_size, agent_size, -1)
+
             node_embedding_obs = self.func_obs(X = node_embedding_obs, A = edge_index_obs, mini_batch = mini_batch)[:, :n_agent,:]
-            #print(node_embedding_obs.shape, node_embedding_comm.shape)
             cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim=2)
 
             if cfg.given_edge == True:
@@ -422,12 +439,18 @@ class Agent:
 
             action_size = action_features.shape[1]
             obs_n = obs[:, agent_id].unsqueeze(1).expand([self.batch_size, action_size, self.graph_embedding_comm])
-
+            # print(action_features.shape)
+            action_features = action_features.reshape(self.batch_size*action_size, -1)
             action_embedding = self.action_representation(action_features)
+            action_embedding = action_embedding.reshape(self.batch_size, action_size, -1)
             obs_and_action = torch.concat([obs_n, action_embedding], dim=2)
             obs_and_action = obs_and_action.float()
+
+            obs_and_action = obs_and_action.reshape(self.batch_size*action_size,-1)
             q = self.Q(obs_and_action)
-            q = q.squeeze(2)                                             # q.shape :      (batch_size, action_size)
+            q = q.reshape(self.batch_size, action_size, -1)
+            q = q.squeeze(2)
+            # q.shape :      (batch_size, action_size)
             actions = torch.tensor(actions, device = device).long()
             act_n = actions[:, agent_id].unsqueeze(1)                    # action.shape : (batch_size, 1)
             q = torch.gather(q, 1, act_n).squeeze(1)                     # q.shape :      (batch_size, 1)
@@ -439,11 +462,16 @@ class Agent:
                 action_features_next = torch.tensor(action_features_next).to(device=device, dtype=torch.float32)
                 action_size = action_features_next.shape[1]
                 obs_next = obs_next[:, agent_id].unsqueeze(1).expand([self.batch_size, action_size, self.graph_embedding_comm])
+
+                action_features_next = action_features_next.reshape(self.batch_size*action_size, -1)
                 action_embedding_next = self.action_representation(action_features_next)
+                action_embedding_next = action_embedding_next.reshape(self.batch_size, action_size, -1)
 
                 obs_and_action_next = torch.concat([obs_next, action_embedding_next], dim=2)
                 obs_and_action_next = obs_and_action_next.float()
+                obs_and_action_next = obs_and_action_next.reshape(self.batch_size*action_size,-1)
                 q_tar = self.Q_tar(obs_and_action_next)                        # q.shape :      (batch_size, action_size, 1)
+                q_tar = q_tar.reshape(self.batch_size, action_size, -1)
                 q_tar = q_tar.squeeze(2)                                       # q.shape :      (batch_size, action_size)
                 avail_actions_next = torch.tensor(avail_actions_next, device = device).bool()
                 mask = avail_actions_next[:, agent_id]
@@ -494,8 +522,28 @@ class Agent:
         return action, torch.stack(selected_action_feature_list)
 
 
+    def eval(self, train = False):
+        if train == False:
+            self.func_glcn.eval()
+            self.VDN.eval()
+            self.Q.eval()
+            self.node_representation.eval()
+            self.node_representation_comm.eval()
+            self.func_obs.eval()
+            self.action_representation.eval()
+        else:
+            self.func_glcn.train()
+            self.VDN.train()
+            self.Q.train()
+            self.node_representation.train()
+            self.node_representation_comm.train()
+            self.func_obs.train()
+            self.action_representation.train()
+
+
 
     def learn(self, e):
+        self.eval(train = True)
         node_features, actions, action_features, edge_indices_enemy, edge_indices_ally, rewards, dones, node_features_next, action_features_next, edge_indices_enemy_next, edge_indices_ally_next, avail_actions_next,dead_masking, agent_feature, agent_feature_next = self.buffer.sample()
 
         """
@@ -554,12 +602,10 @@ class Agent:
         q_tot = self.VDN(q_tot)
         q_tot_tar = self.VDN_target(q_tot_tar)
         td_target = rewards*self.num_agent + self.gamma* (1-dones)*q_tot_tar
-###
         if cfg.given_edge == True:
             rl_loss = F.mse_loss(q_tot, td_target.detach())
             loss = rl_loss
         else:
-
             rl_loss = F.huber_loss(q_tot, td_target.detach())
             graph_loss = gamma1 * lap_quad - gamma2 * gamma1 * sec_eig_upperbound
             loss = graph_loss+rl_loss
@@ -570,9 +616,6 @@ class Agent:
         self.optimizer.step()
         self.optimizer.zero_grad()
 
-
-        #self.Q_tar.load_state_dict(self.Q.state_dict())
-
         tau = 1e-4
         for target_param, local_param in zip(self.Q_tar.parameters(), self.Q.parameters()):
             target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
@@ -582,3 +625,5 @@ class Agent:
             return loss
         else:
             return loss, lap_quad.tolist(), sec_eig_upperbound.tolist(), rl_loss.tolist(), q_tot.tolist()
+
+        self.eval(train=False)
