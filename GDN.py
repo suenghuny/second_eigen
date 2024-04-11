@@ -31,13 +31,13 @@ class Network(nn.Module):
         self.obs_and_action_size = obs_and_action_size
         print(obs_and_action_size, hidden_size_q)
         self.fcn_1 = nn.Linear(obs_and_action_size, hidden_size_q)
-        self.bn_1 = nn.BatchNorm1d(hidden_size_q)
+        #self.bn_1 = nn.BatchNorm1d(hidden_size_q)
         self.fcn_2 = nn.Linear(hidden_size_q, int(hidden_size_q/2))
-        self.bn_2 = nn.BatchNorm1d(int(hidden_size_q/2))
+        #self.bn_2 = nn.BatchNorm1d(int(hidden_size_q/2))
         self.fcn_3 = nn.Linear(int(hidden_size_q/2), int(hidden_size_q/4))
-        self.bn_3 = nn.BatchNorm1d(int(hidden_size_q / 4))
+        #self.bn_3 = nn.BatchNorm1d(int(hidden_size_q / 4))
         self.fcn_4 = nn.Linear(int(hidden_size_q/4), int(hidden_size_q/8))
-        self.bn_4 = nn.BatchNorm1d(int(hidden_size_q / 8))
+        #self.bn_4 = nn.BatchNorm1d(int(hidden_size_q / 8))
         self.fcn_5 = nn.Linear(int(hidden_size_q/8), 1)
         torch.nn.init.xavier_uniform_(self.fcn_1.weight)
         torch.nn.init.xavier_uniform_(self.fcn_2.weight)
@@ -47,10 +47,10 @@ class Network(nn.Module):
 
     def forward(self, obs_and_action):
 
-        x = F.relu(self.bn_1(self.fcn_1(obs_and_action)))
-        x = F.relu(self.bn_2(self.fcn_2(x)))
-        x = F.relu(self.bn_3(self.fcn_3(x)))
-        x = F.relu(self.bn_4(self.fcn_4(x)))
+        x = F.relu(self.fcn_1(obs_and_action))
+        x = F.relu(self.fcn_2(x))
+        x = F.relu(self.fcn_3(x))
+        x = F.relu(self.fcn_4(x))
         q = self.fcn_5(x)
         return q
 
@@ -446,9 +446,9 @@ class Agent:
             obs_and_action = torch.concat([obs_n, action_embedding], dim=2)
             obs_and_action = obs_and_action.float()
 
-            obs_and_action = obs_and_action.reshape(self.batch_size*action_size,-1)
+            #obs_and_action = obs_and_action.reshape(self.batch_size*action_size,-1)
             q = self.Q(obs_and_action)
-            q = q.reshape(self.batch_size, action_size, -1)
+            #q = q.reshape(self.batch_size, action_size, -1)
             q = q.squeeze(2)
             # q.shape :      (batch_size, action_size)
             actions = torch.tensor(actions, device = device).long()
@@ -469,9 +469,9 @@ class Agent:
 
                 obs_and_action_next = torch.concat([obs_next, action_embedding_next], dim=2)
                 obs_and_action_next = obs_and_action_next.float()
-                obs_and_action_next = obs_and_action_next.reshape(self.batch_size*action_size,-1)
+                #obs_and_action_next = obs_and_action_next.reshape(self.batch_size*action_size,-1)
                 q_tar = self.Q_tar(obs_and_action_next)                        # q.shape :      (batch_size, action_size, 1)
-                q_tar = q_tar.reshape(self.batch_size, action_size, -1)
+                #q_tar = q_tar.reshape(self.batch_size, action_size, -1)
                 q_tar = q_tar.squeeze(2)                                       # q.shape :      (batch_size, action_size)
                 avail_actions_next = torch.tensor(avail_actions_next, device = device).bool()
                 mask = avail_actions_next[:, agent_id]
@@ -597,13 +597,11 @@ class Agent:
         q_tot = self.VDN(q_tot)
         q_tot_tar = self.VDN_target(q_tot_tar)
         td_target = rewards*self.num_agent + self.gamma* (1-dones)*q_tot_tar
-        loss_func = str(os.environ.get("loss_func", "mse"))
+        loss_func = str(os.environ.get("loss_func", "huber"))
         if cfg.given_edge == True:
             rl_loss = F.mse_loss(q_tot, td_target.detach())
             loss = rl_loss
         else:
-            if e == 12:
-                print(loss_func)
             if loss_func == 'huber':
                 rl_loss = F.huber_loss(q_tot, td_target.detach())
             else:
