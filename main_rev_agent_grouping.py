@@ -250,7 +250,6 @@ def main():
     agent = Agent(num_agent=env.get_env_info()["n_agents"],
                    num_enemy=env.get_env_info()["n_enemies"],
                    feature_size=env.get_env_info()["node_features"],
-
                    hidden_size_obs = hidden_size_obs,
                    hidden_size_comm = hidden_size_comm,
                    hidden_size_action =hidden_size_action,
@@ -280,6 +279,7 @@ def main():
     t = 0
     epi_r = []
     win_rates = []
+    win_rates2 = []
     lap_quad = []
     sec_eig = []
     rl_lo = []
@@ -315,18 +315,19 @@ def main():
                 rl_lo = []
                 q_t = []
                 r_df= pd.DataFrame(epi_r)
-                r_df.to_csv("cumulative_reward_map_name_{}__lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.csv".format(map_name1,  learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
+                r_df.to_csv(output_dir+"cumulative_reward_map_name_{}__lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.csv".format(map_name1,  learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
             else:
                 r_df= pd.DataFrame(epi_r)
-                r_df.to_csv("cumulative_reward_map_name_{}__lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.csv".format(map_name1,  learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
+                r_df.to_csv(output_dir+"cumulative_reward_map_name_{}__lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.csv".format(map_name1,  learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
 
         if eval == True:
             win_rate = evaluation(env, agent, 32)
             win_rates.append(win_rate)
+
             if vessl_on == True:
                 vessl.log(step = t, payload = {'win_rate' : win_rate})
                 wr_df = pd.DataFrame(win_rates)
-                wr_df.to_csv("\output\win_rate_map_name_{}_lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.csv".format(map_name1, learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
+                wr_df.to_csv(output_dir+"win_rate_map_name_{}_lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.csv".format(map_name1, learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
             else:
                 wr_df = pd.DataFrame(win_rates)
                 wr_df.to_csv("win_rate_map_name_{}_GNN_{}_lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}.csv".format(map_name1, learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
