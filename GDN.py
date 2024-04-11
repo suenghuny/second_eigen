@@ -522,6 +522,7 @@ class Agent:
             self.func_glcn.eval()
             self.VDN.eval()
             self.Q.eval()
+            self.Q_tar.eval()
             self.node_representation.eval()
             self.node_representation_comm.eval()
             self.func_obs.eval()
@@ -530,6 +531,7 @@ class Agent:
             self.func_glcn.train()
             self.VDN.train()
             self.Q.train()
+            self.Q_tar.eval()
             self.node_representation.train()
             self.node_representation_comm.train()
             self.func_obs.train()
@@ -595,7 +597,7 @@ class Agent:
         q_tot = self.VDN(q_tot)
         q_tot_tar = self.VDN_target(q_tot_tar)
         td_target = rewards*self.num_agent + self.gamma* (1-dones)*q_tot_tar
-        loss_func = str(os.environ.get("loss_func", "huber"))
+        loss_func = str(os.environ.get("loss_func", "mse"))
         if cfg.given_edge == True:
             rl_loss = F.mse_loss(q_tot, td_target.detach())
             loss = rl_loss
