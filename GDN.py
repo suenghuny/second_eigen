@@ -47,10 +47,10 @@ class Network(nn.Module):
 
     def forward(self, obs_and_action):
 
-        x = F.relu(self.fcn_1(obs_and_action))
-        x = F.relu(self.fcn_2(x))
-        x = F.relu(self.fcn_3(x))
-        x = F.relu(self.fcn_4(x))
+        x = F.elu(self.fcn_1(obs_and_action))
+        x = F.elu(self.fcn_2(x))
+        x = F.elu(self.fcn_3(x))
+        x = F.elu(self.fcn_4(x))
         q = self.fcn_5(x)
         return q
 
@@ -59,7 +59,7 @@ class NodeEmbedding(nn.Module):
         super(NodeEmbedding, self).__init__()
         self.feature_size = feature_size
         self.fcn_1 = nn.Linear(feature_size, hidden_size+10)
-        self.bn_1 = nn.BatchNorm1d(hidden_size+10)
+        #self.bn_1 = nn.BatchNorm1d(hidden_size+10)
         self.fcn_2 = nn.Linear(hidden_size+10, hidden_size)
 
         self.fcn_3 = nn.Linear(hidden_size, n_representation_obs)
@@ -68,8 +68,8 @@ class NodeEmbedding(nn.Module):
         torch.nn.init.xavier_uniform_(self.fcn_3.weight)
 
     def forward(self, node_feature):
-        x = F.relu(self.fcn_1(node_feature))
-        x = F.relu(self.fcn_2(x))
+        x = F.elu(self.fcn_1(node_feature))
+        x = F.elu(self.fcn_2(x))
         node_representation = self.fcn_3(x)
         return node_representation
 
