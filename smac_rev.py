@@ -435,7 +435,7 @@ class StarCraft2Env(MultiAgentEnv):
     def generate_num_unit_types(self, num_total_unit_types, unit_type_ids):
         self.unit_type_ids = unit_type_ids
         self.num_total_unit_types = num_total_unit_types
-        self.n_node_features = 4 + 6 + 6 + self.num_total_unit_types + 1
+        self.n_node_features = 4 + 6 + 6 + self.num_total_unit_types + 1-8
 
     def reset(self):
         """Reset the environment. Required after each full episode.
@@ -1168,8 +1168,8 @@ class StarCraft2Env(MultiAgentEnv):
         " type : "
         " movement_feature"
         move_avail_feats = np.zeros(4, dtype=np.float32)
-        pos_feats = np.zeros(6, dtype=np.float32)
-        health_and_shield_feats = np.zeros(6, dtype=np.float32)
+        pos_feats = np.zeros(2, dtype=np.float32)
+        health_and_shield_feats = np.zeros(2, dtype=np.float32)
         unit_type_feats = np.zeros(self.num_total_unit_types, dtype=np.float32)
 
         if node_id < self.n_agents:
@@ -1225,15 +1225,15 @@ class StarCraft2Env(MultiAgentEnv):
                 shield_2nd_moment = -(shield_1st_moment - unithistoricinfo.last_shield_1st_moment-5) / (
                             self._step_mul * self.health_scaling_factor4)
 
-            pos_feats[2] =  pos_x_1st_moment
-            pos_feats[3] = (pos_y_1st_moment+2)/4
-            pos_feats[4] = (pos_x_2nd_moment+2)/4
-            pos_feats[5] = (pos_y_2nd_moment+3)/6
+            # pos_feats[2] =  pos_x_1st_moment
+            # pos_feats[3] = (pos_y_1st_moment+2)/4
+            # pos_feats[4] = (pos_x_2nd_moment+2)/4
+            # pos_feats[5] = (pos_y_2nd_moment+3)/6
 
-            health_and_shield_feats[2] = health_1st_moment
-            health_and_shield_feats[3] = shield_1st_moment
-            health_and_shield_feats[4] = health_2nd_moment
-            health_and_shield_feats[5] = shield_2nd_moment
+            # health_and_shield_feats[2] = health_1st_moment
+            # health_and_shield_feats[3] = shield_1st_moment
+            # health_and_shield_feats[4] = health_2nd_moment
+            # health_and_shield_feats[5] = shield_2nd_moment
 
             # self.pos_list1.append(health_1st_moment)
             # self.pos_list2.append(shield_1st_moment)
