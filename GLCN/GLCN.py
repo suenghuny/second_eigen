@@ -185,7 +185,7 @@ class GLCN(nn.Module):
                 zero_vec = -9e15 * torch.ones_like(E)
                 a = torch.where(E > 0, a, zero_vec)
                 a = F.softmax(a, dim = 1)
-                H = F.relu(torch.matmul(a, Wh))
+                H = F.elu(torch.matmul(a, Wh))
                 #print("뒹벳",H) #
             else:
                 batch_size = X.shape[0]

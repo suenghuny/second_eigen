@@ -379,7 +379,8 @@ class Agent:
 
                 node_embedding_obs = self.func_obs(X = node_embedding_obs, A = edge_index_obs)[:n_agent,:]
 
-                cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim = 1)
+                cat_embedding = node_embedding_obs#torch.cat([node_embedding_obs, node_embedding_comm], dim=1)
+                #cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim = 1)
 
                 if cfg.given_edge == True:
                     node_embedding = self.func_glcn(X=cat_embedding[:n_agent,:], dead_masking= dead_masking, A=edge_index_comm)
@@ -407,7 +408,8 @@ class Agent:
             # node_embedding_comm = node_embedding_comm.reshape(batch_size, agent_size, -1)
 
             node_embedding_obs = self.func_obs(X = node_embedding_obs, A = edge_index_obs, mini_batch = mini_batch)[:, :n_agent,:]
-            cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim=2)
+            #cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim=2)
+            cat_embedding = node_embedding_obs
 
             if cfg.given_edge == True:
                 node_embedding = self.func_glcn(X=cat_embedding[:n_agent,:], A=edge_index_comm, dead_masking= dead_masking, mini_batch=mini_batch)
