@@ -307,7 +307,7 @@ class Agent:
             self.func_glcn2 = GLCN(feature_size=self.graph_embedding + self.n_representation_comm,
                                   graph_embedding_size=self.graph_embedding_comm, link_prediction=False).to(device)
         else:
-            self.func_glcn = GLCN(feature_size=self.graph_embedding+self.n_representation_comm,
+            self.func_glcn = GLCN(feature_size=self.graph_embedding,
                                   feature_obs_size=self.graph_embedding,
                                   graph_embedding_size=self.graph_embedding_comm, link_prediction = True).to(device)
 
