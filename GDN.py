@@ -616,7 +616,7 @@ class Agent:
 
 
 
-        tau = 1e-4
+        tau = 1e-5
         for target_param, local_param in zip(self.Q_tar.parameters(), self.Q.parameters()):
             target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
         for target_param, local_param in zip(self.VDN_target.parameters(), self.VDN.parameters()):
