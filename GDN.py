@@ -378,10 +378,8 @@ class Agent:
                 edge_index_comm = torch.tensor(edge_index_comm, dtype=torch.long, device=device)
 
                 node_embedding_obs = self.func_obs(X = node_embedding_obs, A = edge_index_obs)[:n_agent,:]
-
-                cat_embedding = node_embedding_obs#torch.cat([node_embedding_obs, node_embedding_comm], dim=1)
                 #cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim = 1)
-
+                cat_embedding = node_embedding_obs
                 if cfg.given_edge == True:
                     node_embedding = self.func_glcn(X=cat_embedding[:n_agent,:], dead_masking= dead_masking, A=edge_index_comm)
                     return node_embedding
@@ -410,7 +408,6 @@ class Agent:
             node_embedding_obs = self.func_obs(X = node_embedding_obs, A = edge_index_obs, mini_batch = mini_batch)[:, :n_agent,:]
             #cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim=2)
             cat_embedding = node_embedding_obs
-
             if cfg.given_edge == True:
                 node_embedding = self.func_glcn(X=cat_embedding[:n_agent,:], A=edge_index_comm, dead_masking= dead_masking, mini_batch=mini_batch)
                 return node_embedding
@@ -599,7 +596,7 @@ class Agent:
         q_tot = self.VDN(q_tot)
         q_tot_tar = self.VDN_target(q_tot_tar)
         td_target = rewards*self.num_agent + self.gamma* (1-dones)*q_tot_tar
-        loss_func = str(os.environ.get("loss_func", "huber"))
+        loss_func = str(os.environ.get("loss_func", "mse"))
         if cfg.given_edge == True:
             rl_loss = F.mse_loss(q_tot, td_target.detach())
             loss = rl_loss

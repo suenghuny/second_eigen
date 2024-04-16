@@ -214,13 +214,13 @@ def main():
     n_representation_obs = int(os.environ.get("n_representation_obs", 54))#cfg.n_representation_obs  # GAT 해당
     n_representation_action = int(os.environ.get("n_representation_action", 56))  # cfg.n_representation_comm
     n_representation_comm = int(os.environ.get("n_representation_comm", 48))#cfg.n_representation_comm
-    graph_embedding = int(os.environ.get("graph_embedding", 56))
+    graph_embedding = int(os.environ.get("graph_embedding", 72))
     graph_embedding_comm = int(os.environ.get("graph_embedding_comm", 84))
     buffer_size = int(os.environ.get("buffer_size", 100000))       # cfg.buffer_size
-    batch_size = int(os.environ.get("batch_size", 24))             # cfg.batch_size
+    batch_size = int(os.environ.get("batch_size", 32))             # cfg.batch_size
     gamma = 0.99                                                            # cfg.gamma
-    learning_rate = float(os.environ.get("learning_rate", 5.0e-4))            # cfg.lr
-    learning_rate_graph = float(os.environ.get("learning_rate_graph", 7e-5))  # cfg.lr
+    learning_rate = float(os.environ.get("learning_rate", 5.0e-4))           # cfg.lr
+    learning_rate_graph = float(os.environ.get("learning_rate_graph", 5.0e-4))  # cfg.lr
     num_episode = 140000 #cfg.num_episode
     train_start = int(os.environ.get("train_start", 10))# cfg.train_start
     epsilon = float(os.environ.get("epsilon", 1.0))#cfg.epsilon
