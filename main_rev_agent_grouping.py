@@ -183,7 +183,7 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
                 laplacian_quadratic_list.append(laplacian_quadratic)
                 sec_eig_upperbound_list.append(sec_eig_upperbound)
                 if rl_loss_old != None:
-                    if rl_loss/rl_loss_old >=100:
+                    if rl_loss/rl_loss_old >=30:
 
                         torch.save(node_features, output_dir+'node_features{}_{}.pt'.format(e, t))
                         torch.save(node_features_next, output_dir+'node_features_next{}_{}.pt'.format(e, t))
