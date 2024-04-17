@@ -116,7 +116,7 @@ def evaluation(env, agent, num_eval):
 
 
 
-def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer):
+def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer, rl_loss_old):
     max_episode_limit = env.episode_limit
     if initializer == False:
         env.reset()
@@ -178,9 +178,21 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
             if cfg.given_edge == True:
                 loss = agent.learn(e = e)
             else:
-                loss, laplacian_quadratic, sec_eig_upperbound, rl_loss, q_tot = agent.learn(e = e)
+                loss, laplacian_quadratic, sec_eig_upperbound, rl_loss, q_tot, \
+                node_features, node_features_next, td_target, q_tot_, q_tot_tar= agent.learn(e = e)
                 laplacian_quadratic_list.append(laplacian_quadratic)
                 sec_eig_upperbound_list.append(sec_eig_upperbound)
+                if rl_loss_old != None:
+                    if rl_loss/rl_loss_old >=100:
+
+                        torch.save(node_features, output_dir+'node_features{}_{}.pt'.format(e, t))
+                        torch.save(node_features_next, output_dir+'node_features_next{}_{}.pt'.format(e, t))
+                        torch.save(td_target, output_dir+'td_target{}_{}.pt'.format(e, t))
+                        torch.save(q_tot_, output_dir+'q_tot{}_{}.pt'.format(e, t))
+                        torch.save(q_tot_tar, output_dir+'q_tot_tar{}_{}.pt'.format(e, t))
+
+                rl_loss_old = rl_loss
+
                 rl_losses.append(rl_loss)
                 q_tots.append(q_tot)
             losses.append(loss.detach().item())
@@ -198,7 +210,8 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
                np.mean(laplacian_quadratic_list), \
                np.mean(sec_eig_upperbound_list), \
                np.mean(rl_losses),\
-               np.mean(q_tots)
+               np.mean(q_tots),\
+               rl_loss_old
 
 
 
@@ -214,7 +227,7 @@ def main():
     n_representation_obs = int(os.environ.get("n_representation_obs", 54))#cfg.n_representation_obs  # GAT 해당
     n_representation_action = int(os.environ.get("n_representation_action", 56))  # cfg.n_representation_comm
     n_representation_comm = int(os.environ.get("n_representation_comm", 48))#cfg.n_representation_comm
-    graph_embedding = int(os.environ.get("graph_embedding", 72))
+    graph_embedding = int(os.environ.get("graph_embedding", 64))
     graph_embedding_comm = int(os.environ.get("graph_embedding_comm", 84))
     buffer_size = int(os.environ.get("buffer_size", 100000))       # cfg.buffer_size
     batch_size = int(os.environ.get("batch_size", 32))             # cfg.batch_size
@@ -235,7 +248,7 @@ def main():
     anneal_epsilon = (epsilon - min_epsilon) / anneal_steps
     initializer = True
 
-
+    rl_loss_old = None
     agent = Agent(num_agent=env.get_env_info()["n_agents"],
                    num_enemy=env.get_env_info()["n_enemies"],
                    feature_size=env.get_env_info()["node_features"],
@@ -274,7 +287,7 @@ def main():
         if cfg.given_edge == True:
             episode_reward, epsilon, t, eval = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer)
         else:
-            episode_reward, epsilon, t, eval, laplacian_quadratic, second_eig_upperbound, rl_loss, q_tot = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer)
+            episode_reward, epsilon, t, eval, laplacian_quadratic, second_eig_upperbound, rl_loss, q_tot, rl_loss_old = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer, rl_loss_old)
             print("upper_bound", second_eig_upperbound)
         initializer = False
         epi_r.append(episode_reward)
