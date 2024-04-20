@@ -378,6 +378,7 @@ class Agent:
                 edge_index_comm = torch.tensor(edge_index_comm, dtype=torch.long, device=device)
 
                 node_embedding_obs = self.func_obs(X = node_embedding_obs, A = edge_index_obs)[:n_agent,:]
+
                 cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim = 1)
 
                 if cfg.given_edge == True:
@@ -609,14 +610,14 @@ class Agent:
             loss = graph_loss+rl_loss
 
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.eval_params, float(os.environ.get("grad_clip", 5)))
-        torch.nn.utils.clip_grad_norm_(self.graph_params, float(os.environ.get("grad_clip_graph", 5)))
+        torch.nn.utils.clip_grad_norm_(self.eval_params, float(os.environ.get("grad_clip", 10)))
+        torch.nn.utils.clip_grad_norm_(self.graph_params, float(os.environ.get("grad_clip_graph", 10)))
         self.optimizer.step()
         self.optimizer.zero_grad()
 
 
 
-        tau = 1e-5
+        tau = 1e-4
         for target_param, local_param in zip(self.Q_tar.parameters(), self.Q.parameters()):
             target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
         for target_param, local_param in zip(self.VDN_target.parameters(), self.VDN.parameters()):
@@ -624,6 +625,6 @@ class Agent:
         if cfg.given_edge == True:
             return loss
         else:
-            return loss, lap_quad.tolist(), sec_eig_upperbound.tolist(), rl_loss.tolist(), q_tot.tolist(), node_features, node_features_next, td_target, q_tot, q_tot_tar
+            return loss, lap_quad.tolist(), sec_eig_upperbound.tolist(), rl_loss.tolist(), q_tot.tolist()
 
         self.eval(train=False)
