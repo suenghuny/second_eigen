@@ -9,6 +9,8 @@ import os
 import time
 from cfg import get_cfg
 cfg = get_cfg()
+load_model = bool(os.environ.get("load_model", True))
+
 
 vessl_on = cfg.vessl_on
 if vessl_on == True:
@@ -263,6 +265,8 @@ def main():
                    min_graph_variance = min_graph_variance,
                    env = None
                   )
+    if load_model==True:
+        agent.load_model("episode12000.pt")
     t = 0
     epi_r = []
     win_rates = []

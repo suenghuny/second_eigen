@@ -346,7 +346,7 @@ class Agent:
     def save_model(self, file_dir, e):
         torch.save({
                         "1": self.Q.state_dict(),
-                        "2": self.Q.state_dict(),
+                        "2": self.Q_tar.state_dict(),
                         "3": self.func_glcn.state_dict(),
                         "4": self.func_obs.state_dict(),
                         "5": self.action_representation.state_dict(),
@@ -360,7 +360,15 @@ class Agent:
     # self.node_representation_comm
     # self.action_representation
     def load_model(self, path):
-        self = torch.load(path)
+        self.Q.load_state_dict(torch.load(path)["1"])
+        self.Q_tar.load_state_dict(torch.load(path)["2"])
+        self.func_glcn.load_state_dict(torch.load(path)["3"])
+        self.func_obs.load_state_dict(torch.load(path)["4"])
+        self.action_representation.load_state_dict(torch.load(path)["5"])
+        self.node_representation_comm.load_state_dict(torch.load(path)["6"])
+        self.node_representation.load_state_dict(torch.load(path)["7"])
+        self.optimizer.load_state_dict(torch.load(path)["optimizer_state_dict"])
+
 
 
     def get_node_representation_temp(self, node_feature, agent_feature, edge_index_obs,edge_index_comm, n_agent,
