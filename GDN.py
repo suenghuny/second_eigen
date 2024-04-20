@@ -368,7 +368,7 @@ class Agent:
         self.node_representation_comm.load_state_dict(torch.load(path)["6"])
         self.node_representation.load_state_dict(torch.load(path)["7"])
         self.optimizer.load_state_dict(torch.load(path)["optimizer_state_dict"])
-
+###
 
 
     def get_node_representation_temp(self, node_feature, agent_feature, edge_index_obs,edge_index_comm, n_agent,
