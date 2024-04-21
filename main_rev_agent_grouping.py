@@ -320,7 +320,7 @@ def main():
                     agent.save_model(output_dir, e)
                 if win_rate >= 0.5:
                     for param_group in agent.optimizer.param_groups:
-                        param_group['lr'] = 5.0e-5
+                        param_group['lr'] = 5.00e-5
 
             else:
                 wr_df = pd.DataFrame(win_rates)
