@@ -177,7 +177,7 @@ def main():
                    min_graph_variance = min_graph_variance,
                    env = None
                   )
-    agent.load_model("episode88000.pt")
+    agent.load_model(cfg.load)
     # 97000 그나마 나음
     # 82000
     # 83000

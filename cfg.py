@@ -16,7 +16,7 @@ def get_cfg():
     parser.add_argument("--scheduler_ratio", type=float, default=0.5, help= "scheduler ratio")
     parser.add_argument("--negativeslope", type=float, default=0.1, help="leaky relu negative slope")
     parser.add_argument("--map_name", type=str, default='6h_vs_8z', help="map name")
-
+    parser.add_argument("--load", type=str, default='episode97000.pt', help="map name")
     parser.add_argument("--hidden_size_obs", type=int, default=32, help="")
     parser.add_argument("--hidden_size_comm", type=int, default=32, help="")
     parser.add_argument("--hidden_size_action", type=int, default=36, help="")
