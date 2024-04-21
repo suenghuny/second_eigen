@@ -9,7 +9,7 @@ import os
 import time
 from cfg import get_cfg
 cfg = get_cfg()
-load_model = bool(os.environ.get("load_model", False))
+load_model = bool(os.environ.get("load_model", True))
 
 
 vessl_on = cfg.vessl_on
@@ -117,94 +117,6 @@ def evaluation(env, agent, num_eval):
 
 
 
-
-def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer):
-    max_episode_limit = env.episode_limit
-    if initializer == False:
-        env.reset()
-    done = False
-    episode_reward = 0
-    step = 0
-    losses = []
-    epi_r = list()
-    eval = False
-    start = time.time()
-    laplacian_quadratic_list = list()
-    sec_eig_upperbound_list = list()
-    rl_losses = list()
-    q_tots = list()
-    num_agent = env.get_env_info()["n_agents"]
-    action_history = torch.zeros([num_agent , env.get_env_info()["node_features"] + 5])
-    while (not done) and (step < max_episode_limit):
-        """
-        Note: edge index 추출에 세가지 방법
-        1. enemy_visibility에 대한 adjacency matrix 추출(self loop 포함) / 아군 유닛의 시야로부터 적에 대한 visibility relation
-        2. ally_communication에 대한에 대한 adjacency matrix 추출                 / 아군 유닛의 시야로부터 적에 대한 visibility
-        """
-        node_feature, edge_index_enemy, edge_index_ally, _, dead_masking = env.get_heterogeneous_graph(heterogeneous=heterogenous)
-        agent_feature = torch.concat([torch.tensor(node_feature)[:num_agent,:-1], action_history.to('cpu')], dim = 1)
-        avail_action = env.get_avail_actions()
-        n_agent = len(avail_action)
-        if cfg.given_edge == True:
-            node_representation = agent.get_node_representation_temp(
-                node_feature,
-                agent_feature,
-                edge_index_enemy,
-                edge_index_ally,
-                n_agent=n_agent,
-                dead_masking=dead_masking,
-                mini_batch=False)
-        else:
-            node_representation, A, X = agent.get_node_representation_temp(
-                node_feature,
-                agent_feature,
-                edge_index_enemy,
-                edge_index_ally,
-                n_agent=n_agent,
-                dead_masking = dead_masking,
-                mini_batch=False)
-
-        action_feature = env.get_action_feature()  # 차원 : action_size X n_action_feature
-        action, action_history = agent.sample_action(node_representation, action_feature, avail_action, epsilon)
-
-        reward, done, info = env.step(action)
-        agent.buffer.memory(node_feature, action, action_feature, edge_index_enemy, edge_index_ally, reward,
-                            done, avail_action, dead_masking, agent_feature.tolist())
-        episode_reward += reward
-
-        t += 1
-        step += 1
-        if (t % 5000 == 0) and (t >0):
-            eval = True
-        if e >= train_start:
-            if cfg.given_edge == True:
-                loss = agent.learn(e = e)
-            else:
-                loss, laplacian_quadratic, sec_eig_upperbound, rl_loss, q_tot = agent.learn(e = e)
-                laplacian_quadratic_list.append(laplacian_quadratic)
-                sec_eig_upperbound_list.append(sec_eig_upperbound)
-                rl_losses.append(rl_loss)
-                q_tots.append(q_tot)
-            losses.append(loss.detach().item())
-        if epsilon >= min_epsilon:
-            epsilon = epsilon - anneal_epsilon
-        else:
-            epsilon = min_epsilon
-
-
-    print("{} Total reward in episode {} = {}, epsilon : {}, time_step : {}, episode_duration : {}".format(env.map_name,e,np.round(episode_reward, 3),np.round(epsilon, 3),t, np.round(time.time()-start, 3)))
-    if cfg.given_edge == True:
-        return episode_reward,epsilon, t, eval
-    else:
-        return episode_reward, epsilon, t, eval, \
-               np.mean(laplacian_quadratic_list), \
-               np.mean(sec_eig_upperbound_list), \
-               np.mean(rl_losses),\
-               np.mean(q_tots)
-
-
-
-
 def main():
     env.reset()
     num_unit_types, unit_type_ids = get_agent_type_of_envs([env])
@@ -265,8 +177,12 @@ def main():
                    min_graph_variance = min_graph_variance,
                    env = None
                   )
-    if load_model==True:
-        agent.load_model("episode12000.pt")
+    agent.load_model("episode88000.pt")
+    # 97000 그나마 나음
+    # 82000
+    # 83000
+    # 86000
+    #
     t = 0
     epi_r = []
     win_rates = []
@@ -275,23 +191,6 @@ def main():
     rl_lo = []
     q_t = [] #
     for e in range(num_episode):
-        if cfg.given_edge == True:
-            episode_reward, epsilon, t, eval = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer)
-        else:
-            episode_reward, epsilon, t, eval, laplacian_quadratic, second_eig_upperbound, rl_loss, q_tot = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer)
-            print("upper_bound", second_eig_upperbound)
-        initializer = False
-        epi_r.append(episode_reward)
-        lap_quad.append(laplacian_quadratic)
-        sec_eig.append(second_eig_upperbound)
-        rl_lo.append(rl_loss)
-        q_t.append(q_tot)
-        if e % 1000 == 0:#
-            if vessl_on == True:
-                agent.save_model(output_dir, e)
-            else:
-                agent.save_model(output_dir, e)
-
         if e % 10 == 1:
             if vessl_on == True:
                 vessl.log(step = e, payload = {'reward' : np.mean(epi_r)})
@@ -309,18 +208,16 @@ def main():
             else:
                 r_df= pd.DataFrame(epi_r)
                 r_df.to_csv(output_dir+"cumulative_reward_map_name_{}__lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.csv".format(map_name1,  learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
-        if eval == True:
-            win_rate = evaluation(env, agent, 32)
-            win_rates.append(win_rate)
-            if vessl_on == True:
-                vessl.log(step = t, payload = {'win_rate' : win_rate})
-                wr_df = pd.DataFrame(win_rates)
-                wr_df.to_csv(output_dir+"win_rate_map_name_{}_lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.csv".format(map_name1, learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
-                if win_rates >= 0.3:
-                    agent.save_model(output_dir, e)
-            else:
-                wr_df = pd.DataFrame(win_rates)
-                wr_df.to_csv("win_rate_map_name_{}_GNN_{}_lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}.csv".format(map_name1, learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
+
+        win_rate = evaluation(env, agent, 100)
+        win_rates.append(win_rate)
+        if vessl_on == True:
+            vessl.log(step = t, payload = {'win_rate' : win_rate})
+            wr_df = pd.DataFrame(win_rates)
+            wr_df.to_csv(output_dir+"win_rate_map_name_{}_lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.csv".format(map_name1, learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
+        else:
+            wr_df = pd.DataFrame(win_rates)
+            wr_df.to_csv("win_rate_map_name_{}_GNN_{}_lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}.csv".format(map_name1, learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
 
 
 
