@@ -316,8 +316,12 @@ def main():
                 vessl.log(step = t, payload = {'win_rate' : win_rate})
                 wr_df = pd.DataFrame(win_rates)
                 wr_df.to_csv(output_dir+"win_rate_map_name_{}_lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.csv".format(map_name1, learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
-                if win_rates >= 0.3:
+                if win_rate >= 0.3:
                     agent.save_model(output_dir, e)
+                if win_rate >= 0.5:
+                    for param_group in agent.optimizer.param_groups:
+                        param_group['lr'] = 5.0e-5
+
             else:
                 wr_df = pd.DataFrame(win_rates)
                 wr_df.to_csv("win_rate_map_name_{}_GNN_{}_lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}.csv".format(map_name1, learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))

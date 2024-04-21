@@ -360,7 +360,7 @@ class Agent:
     # self.node_representation_comm
     # self.action_representation
     def load_model(self, path):
-        print(path)
+        
         self.Q.load_state_dict(torch.load(path)["1"])
         self.Q_tar.load_state_dict(torch.load(path)["2"])
         self.func_glcn.load_state_dict(torch.load(path)["3"])

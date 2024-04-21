@@ -68,6 +68,7 @@ def evaluation(env, agent, num_eval):
     win_rates = 0
     num_agent = env.get_env_info()["n_agents"]
     action_history = torch.zeros([num_agent , env.get_env_info()["node_features"] + 5])
+    win_tags = list()
     for e in range(num_eval):
         env.reset()
         done = False
@@ -109,9 +110,12 @@ def evaluation(env, agent, num_eval):
             episode_reward += reward
             t += 1
 
-        print("map name {} : Evaluation episode {}, episode reward {}, win_tag {}".format(env.map_name, e, episode_reward, win_tag))
+        print("map name {} : Evaluation episode {}, episode reward {}, win_tag {}".format(env.map_name, e, episode_reward, np.mean(win_tags)))
         if win_tag == True:
             win_rates += 1 / num_eval
+            win_tags.append(1)
+        else:
+            win_tags.append(0)
     print("map name : ", env.map_name, "승률", win_rates)
     return win_rates
 
@@ -177,12 +181,10 @@ def main():
                    min_graph_variance = min_graph_variance,
                    env = None
                   )
-    agent.load_model(cfg.load)
+    agent.load_model("episode97000.pt")
     # 97000 그나마 나음
     # 82000
     # 83000
-    # 86000
-    #
     t = 0
     epi_r = []
     win_rates = []
@@ -209,7 +211,7 @@ def main():
                 r_df= pd.DataFrame(epi_r)
                 r_df.to_csv(output_dir+"cumulative_reward_map_name_{}__lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.csv".format(map_name1,  learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
 
-        win_rate = evaluation(env, agent, 100)
+        win_rate = evaluation(env, agent, 1000)
         win_rates.append(win_rate)
         if vessl_on == True:
             vessl.log(step = t, payload = {'win_rate' : win_rate})
