@@ -462,14 +462,15 @@ class Agent(nn.Module):
             obs_n = obs[:, agent_id].unsqueeze(1).expand([self.batch_size, action_size, self.graph_embedding_comm])
             # print(action_features.shape)
             #action_features = action_features.reshape(self.batch_size*action_size, -1)
+
             action_embedding = self.action_representation(action_features)
             #action_embedding = action_embedding.reshape(self.batch_size, action_size, -1)
             obs_and_action = torch.concat([obs_n, action_embedding], dim=2)
             obs_and_action = obs_and_action.float()
-
-            #obs_and_action = obs_and_action.reshape(self.batch_size*action_size,-1)
+            ##print(obs_and_action.shape)
+            obs_and_action = obs_and_action.reshape(self.batch_size*action_size,-1)
             q = self.Q(obs_and_action)
-            #q = q.reshape(self.batch_size, action_size, -1)
+            q = q.reshape(self.batch_size, action_size, -1)
             q = q.squeeze(2)
             # q.shape :      (batch_size, action_size)
             actions = torch.tensor(actions, device = device).long()
@@ -490,9 +491,9 @@ class Agent(nn.Module):
 
                 obs_and_action_next = torch.concat([obs_next, action_embedding_next], dim=2)
                 obs_and_action_next = obs_and_action_next.float()
-                #obs_and_action_next = obs_and_action_next.reshape(self.batch_size*action_size,-1)
+                obs_and_action_next = obs_and_action_next.reshape(self.batch_size*action_size,-1)
                 q_tar = self.Q_tar(obs_and_action_next)                        # q.shape :      (batch_size, action_size, 1)
-                #q_tar = q_tar.reshape(self.batch_size, action_size, -1)
+                q_tar = q_tar.reshape(self.batch_size, action_size, -1)
                 q_tar = q_tar.squeeze(2)                                       # q.shape :      (batch_size, action_size)
                 avail_actions_next = torch.tensor(avail_actions_next, device = device).bool()
                 mask = avail_actions_next[:, agent_id]
