@@ -67,21 +67,18 @@ def evaluation(env, agent, num_eval):
     t = 0
     win_rates = 0
     num_agent = env.get_env_info()["n_agents"]
-    action_history = torch.zeros([num_agent , env.get_env_info()["node_features"] + 5])
+
     for e in range(num_eval):
         env.reset()
         done = False
         episode_reward = 0
         step = 0
+        action_history = torch.zeros([num_agent, env.get_env_info()["node_features"] + 5])
         while (not done) and (step < max_episode_len):
             step += 1
-
             node_feature, edge_index_enemy, edge_index_ally, _, dead_masking = env.get_heterogeneous_graph(heterogeneous = heterogenous)
             avail_action = env.get_avail_actions()
-
             agent_feature = torch.concat([torch.tensor(node_feature)[:num_agent,:-1], action_history.to('cpu')], dim = 1)
-
-
             n_agent = len(avail_action)
             if cfg.given_edge == True:
                 node_representation = agent.get_node_representation_temp(

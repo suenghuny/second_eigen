@@ -197,7 +197,7 @@ class Replay_Buffer:
 
         return node_features, actions, action_features, edge_indices_enemy, edge_indices_ally, rewards, dones, node_features_next, action_features_next, edge_indices_enemy_next, edge_indices_ally_next, avail_actions_next,dead_masking, agent_feature, agent_feature_next
 
-class Agent:
+class Agent(nn.Module):
     def __init__(self,
                  num_agent,
                  num_enemy,
@@ -229,7 +229,7 @@ class Agent:
         torch.manual_seed(81)
         random.seed(81)
         np.random.seed(81)
-
+        super(Agent, self).__init__()
         self.num_agent = num_agent
         self.num_enemy = num_enemy
         self.feature_size = feature_size
@@ -360,16 +360,28 @@ class Agent:
     # self.node_representation_comm
     # self.action_representation
     def load_model(self, path):
-        
-        self.Q.load_state_dict(torch.load(path)["1"])
-        self.Q_tar.load_state_dict(torch.load(path)["2"])
-        self.func_glcn.load_state_dict(torch.load(path)["3"])
-        self.func_obs.load_state_dict(torch.load(path)["4"])
-        self.action_representation.load_state_dict(torch.load(path)["5"])
-        self.node_representation_comm.load_state_dict(torch.load(path)["6"])
-        self.node_representation.load_state_dict(torch.load(path)["7"])
-        self.optimizer.load_state_dict(torch.load(path)["optimizer_state_dict"])
-###
+        try:
+            checkpoint = torch.load(path)
+            self.Q.load_state_dict(checkpoint["1"])
+            self.Q_tar.load_state_dict(checkpoint["2"])
+            self.func_glcn.load_state_dict(checkpoint["3"])
+            self.func_obs.load_state_dict(checkpoint["4"])
+            self.action_representation.load_state_dict(checkpoint["5"])
+            self.node_representation_comm.load_state_dict(checkpoint["6"])
+            self.node_representation.load_state_dict(checkpoint["7"])
+            self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+            self.func_glcn.eval()
+            self.VDN.eval()
+            self.Q.eval()
+            self.Q_tar.eval()
+            self.node_representation.eval()
+            self.node_representation_comm.eval()
+            self.func_obs.eval()
+            self.action_representation.eval()
+        except KeyError as e:
+            print(f"Missing key in state_dict: {e}")
+        except Exception as e:
+            print(f"An error occurred while loading the model: {e}")
 
 
     def get_node_representation_temp(self, node_feature, agent_feature, edge_index_obs,edge_index_comm, n_agent,
@@ -507,7 +519,6 @@ class Agent:
         action_space = [i for i in range(action_size)]
         selected_action_feature_list = list()
         for n in range(self.num_agent):
-            #print(node_representation.shape)
             obs = node_representation[n].expand(action_size, node_representation[n].shape[0])         # 차원 : action_size X n_representation_comm
             obs_cat_action = torch.concat([obs, action_embedding], dim = 1)    # 차원 : action_size X
             obs_cat_action = obs_cat_action.float()

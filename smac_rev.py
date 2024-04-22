@@ -1192,6 +1192,7 @@ class StarCraft2Env(MultiAgentEnv):
 
             pos_feats[0] = unit.pos.x   / self.position_scaling_factor
             pos_feats[1] = unit.pos.y   / self.position_scaling_factor
+
             health_and_shield_feats[0] = unit.health / unit.health_max
             if unit.shield_max == 0:
                 health_and_shield_feats[1] = 0

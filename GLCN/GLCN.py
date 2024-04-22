@@ -32,8 +32,10 @@ def gumbel_sigmoid(logits: Tensor, tau: float = 1, hard: bool = False, threshold
     gumbels = (
         -torch.empty_like(logits, memory_format=torch.legacy_contiguous_format).exponential_().log()
     )
+
     gumbels = (logits + gumbels) / tau  # ~Gumbel(logits, tau)
     y_soft = gumbels.sigmoid()
+
 
     if hard:
         # Straight through.
@@ -42,6 +44,7 @@ def gumbel_sigmoid(logits: Tensor, tau: float = 1, hard: bool = False, threshold
         y_hard = torch.zeros_like(logits, memory_format=torch.legacy_contiguous_format)
         y_hard[indices[0], indices[1]] = 1.0
         ret = y_hard - y_soft.detach() + y_soft
+
     else:
         # Reparametrization trick.
         ret = y_soft
@@ -137,7 +140,7 @@ class GLCN(nn.Module):
             h = torch.einsum("ijk,kl->ijl", torch.abs(h.unsqueeze(1) - h.unsqueeze(0)), self.a_link)
             h = h.squeeze(2)
             if self.sampling == True:
-                A = gumbel_sigmoid(h, tau = float(os.environ.get("gumbel_tau",1.0)),
+                A = gumbel_sigmoid(h, tau = float(os.environ.get("gumbel_tau",0.25)),
                                    hard = True, threshold = 0.5)
             else:
                 A = F.sigmoid(h)
@@ -214,7 +217,11 @@ class GLCN(nn.Module):
                         X_past = H
                         Wh = H @ self.Ws[k]
                         a = self._prepare_attentional_mechanism_input(Wh, Wh, k=k)
+
+                        A = torch.where(A == 0, torch.tensor(-9e15, device=A.device), A)
+                        zero_vec = -9e15 * torch.ones_like(A)
                         a = A * a
+                        a = torch.where(a < -1e8, zero_vec, a)
                         a = F.softmax(a, dim=1)
                         H = F.relu(torch.matmul(a, Wh))
                         if self.skip_connection == True:
@@ -255,8 +262,12 @@ class GLCN(nn.Module):
                             X_past = H
                             Wh = H @ self.Ws[k]
                             a = self._prepare_attentional_mechanism_input(Wh, Wh, k = k)
-                            a = A*a
+                            A = torch.where(A == 0, torch.tensor(-9e15, device=A.device), A)
+                            zero_vec = -9e15 * torch.ones_like(A)
+                            a = A * a
+                            a = torch.where(a < -1e8, zero_vec, a)
                             a = F.softmax(a, dim=1)
+                            #print("후", a)
                             H = F.relu(torch.matmul(a, Wh))
                             if self.skip_connection == True:
                                 H = H + X_past
