@@ -319,7 +319,8 @@ def main():
                 if win_rate >= 0.3:
                     agent.save_model(output_dir, e)
                 if win_rate >= 0.5:
-                    agent.optimizer.param_groups[1]['lr'] = 0
+                    if bool(os.environ.get("schedule", True)) == True:
+                        agent.optimizer.param_groups[1]['lr'] = 0
             else:
                 wr_df = pd.DataFrame(win_rates)
                 wr_df.to_csv("win_rate_map_name_{}_GNN_{}_lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}.csv".format(map_name1, learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
