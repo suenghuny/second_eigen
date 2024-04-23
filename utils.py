@@ -22,7 +22,7 @@ def get_graph_loss(X, A, num_nodes, e = False, anneal_episodes_graph_variance = 
     num_nodes = A.shape[1]
     X_i = X.unsqueeze(2)
     X_j = X.unsqueeze(1)
-    euclidean_distance = torch.mean((X_i - X_j) ** 2, dim=3).detach()
+    euclidean_distance = torch.sum((X_i - X_j) ** 2, dim=3).detach()
     laplacian_quadratic = torch.sum(euclidean_distance * A, dim=(1, 2))
     frobenius_norm = (torch.norm(A, p='fro', dim=(1, 2), keepdim=True) ** 2).squeeze(-1).squeeze(-1)
     var = torch.mean(torch.var(A, dim=2), dim=1)
