@@ -217,10 +217,9 @@ class GLCN(nn.Module):
                         X_past = H
                         Wh = H @ self.Ws[k]
                         a = self._prepare_attentional_mechanism_input(Wh, Wh, k=k)
-
-                        A = torch.where(A == 0, torch.tensor(-9e15, device=A.device), A)
-                        zero_vec = -9e15 * torch.ones_like(A)
-                        a = A * a
+                        A_ = torch.where(A == 0, torch.tensor(-9e15, device=A.device), A)
+                        zero_vec = -9e15 * torch.ones_like(A_)
+                        a = A_ * a
                         a = torch.where(a < -1e8, zero_vec, a)
                         a = F.softmax(a, dim=1)
                         H = F.relu(torch.matmul(a, Wh))
@@ -262,9 +261,9 @@ class GLCN(nn.Module):
                             X_past = H
                             Wh = H @ self.Ws[k]
                             a = self._prepare_attentional_mechanism_input(Wh, Wh, k = k)
-                            A = torch.where(A == 0, torch.tensor(-9e15, device=A.device), A)
-                            zero_vec = -9e15 * torch.ones_like(A)
-                            a = A * a
+                            A_ = torch.where(A == 0, torch.tensor(-9e15, device=A.device), A)
+                            zero_vec = -9e15 * torch.ones_like(A_)
+                            a = A_ * a
                             a = torch.where(a < -1e8, zero_vec, a)
                             a = F.softmax(a, dim=1)
                             #print("후", a)
@@ -292,4 +291,5 @@ class GLCN(nn.Module):
                 H = torch.stack(H_placeholder)
                 A = torch.stack(A_placeholder)
                 D = torch.stack(D_placeholder)
+
                 return H, A, X, D
