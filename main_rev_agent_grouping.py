@@ -296,13 +296,17 @@ def main():
                 vessl.log(step = e, payload={'sec_eig': np.mean(sec_eig)})
                 vessl.log(step = e, payload={'rl_lo': np.mean(rl_lo)})
                 vessl.log(step = e, payload={'q_t': np.mean(q_t)})
+                r_df = pd.DataFrame(epi_r)
+                r_df.to_csv(
+                    output_dir + "cumulative_reward_map_name_{}__lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.csv".format(
+                        map_name1, learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs,
+                        n_representation_comm))
                 lap_quad = []
                 sec_eig = []
                 epi_r = []
                 rl_lo = []
                 q_t = []
-                r_df= pd.DataFrame(epi_r)
-                r_df.to_csv(output_dir+"cumulative_reward_map_name_{}__lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.csv".format(map_name1,  learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
+
                 # if np.mean(epi_r[30:])<3:
                 #     break
             else:
