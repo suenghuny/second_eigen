@@ -298,6 +298,7 @@ def main():
                 vessl.log(step = e, payload={'q_t': np.mean(q_t)})
                 lap_quad = []
                 sec_eig = []
+                epi_r = []
                 rl_lo = []
                 q_t = []
                 r_df= pd.DataFrame(epi_r)
