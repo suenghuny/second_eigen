@@ -631,9 +631,9 @@ class Agent(nn.Module):
             loss = graph_loss+rl_loss
 
         loss.backward()
-        for name, param in self.func_glcn.named_parameters():
-            if param.requires_grad:
-                print(f'{name}: gradient norm is {param.grad.norm()}')
+        # for name, param in self.func_glcn.named_parameters():
+        #     if param.requires_grad:
+        #         print(f'{name}: gradient norm is {param.grad.norm()}')
 
 
         grad_clip = float(os.environ.get("grad_clip", 10))
