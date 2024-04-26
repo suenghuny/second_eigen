@@ -17,13 +17,25 @@ hydralisk : 80.00.00.625
 baneling : 30.00.00.375
 spine crawler : 300.00.01.125`
 """
-def get_graph_loss(X, A, num_nodes, e = False, anneal_episodes_graph_variance = False, min_graph_variance = False):
+def get_graph_loss(X, A, bn):
 
     num_nodes = A.shape[1]
     X_i = X.unsqueeze(2)
     X_j = X.unsqueeze(1)
+
     euclidean_distance = torch.sum((X_i - X_j) ** 2, dim=3).detach()
+    batch_size = euclidean_distance.shape[0]
+    n = euclidean_distance.shape[1]
+
+    euclidean_distance_flat = euclidean_distance.view(batch_size, n * n)
+
+    # 배치 정규화 적용
+    euclidean_distance = bn(euclidean_distance_flat)
+
+    # 다시 원래 형태로 reshape
+    euclidean_distance = euclidean_distance.view(batch_size, n, n)
     laplacian_quadratic = torch.sum(euclidean_distance * A, dim=(1, 2))
+
     frobenius_norm = (torch.norm(A, p='fro', dim=(1, 2), keepdim=True) ** 2).squeeze(-1).squeeze(-1)
     var = torch.mean(torch.var(A, dim=2), dim=1)
     #print(var.shape)

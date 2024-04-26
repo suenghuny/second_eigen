@@ -315,7 +315,7 @@ class Agent(nn.Module):
         self.Q = Network(self.graph_embedding_comm + self.n_representation_action, hidden_size_Q).to(device)
         self.Q_tar = Network(self.graph_embedding_comm + self.n_representation_action, hidden_size_Q).to(device)
         self.Q_tar.load_state_dict(self.Q.state_dict())
-
+        self.bn = nn.BatchNorm1d(num_agent * num_agent, track_running_stats=False).to(device)
         if cfg.given_edge == True:
             self.eval_params = list(self.VDN.parameters()) + \
                                list(self.Q.parameters()) + \
@@ -593,7 +593,7 @@ class Agent(nn.Module):
                                                                   mini_batch=True)
             gamma1 = self.gamma1
             gamma2 = self.gamma2
-            lap_quad, sec_eig_upperbound, L = get_graph_loss(X, A, num_nodes, e, self.anneal_episodes_graph_variance,self.min_graph_variance)
+            lap_quad, sec_eig_upperbound, L = get_graph_loss(X, A, self.bn)
 
 
 
