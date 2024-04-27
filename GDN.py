@@ -634,7 +634,7 @@ class Agent(nn.Module):
         # for name, param in self.func_glcn.named_parameters():
         #     if param.requires_grad:
         #         print(f'{name}: gradient norm is {param.grad.norm()}')
-        grad_clip = float(os.environ.get("grad_clip", 0.1))
+        grad_clip = float(os.environ.get("grad_clip", 0.01))
         torch.nn.utils.clip_grad_norm_(self.eval_params, grad_clip)
         torch.nn.utils.clip_grad_norm_(self.graph_params, grad_clip)
         self.optimizer.step()
