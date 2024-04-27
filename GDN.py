@@ -671,24 +671,23 @@ class Agent(nn.Module):
             loss = graph_loss+rl_loss
 
         # #print(loss, cum_losses_old)
-        ratio = loss/cum_losses_old
-        eps_clip = float(os.environ.get("grad_clip", 0.5))
-        #print(ratio, torch.clamp(ratio, 1 - eps_clip, 1 + eps_clip))
-        #surr1 = ratio*loss
-        loss = torch.clamp(ratio, 1 - eps_clip, 1 + eps_clip) * loss
+        # ratio = loss/cum_losses_old
+        # eps_clip = float(os.environ.get("grad_clip", 0.1))
+        # #print(ratio, torch.clamp(ratio, 1 - eps_clip, 1 + eps_clip))
+        # surr1 = ratio*loss
+        # surr2 = torch.clamp(ratio, 1 - eps_clip, 1 + eps_clip) * loss
         # print(surr1, surr2)
 
         loss.backward()
         grad_clip = float(os.environ.get("grad_clip", 10))
         torch.nn.utils.clip_grad_norm_(self.eval_params, grad_clip)
         torch.nn.utils.clip_grad_norm_(self.graph_params, grad_clip)
-        # if graph_learning_stop == True:
-        #     torch.nn.utils.clip_grad_norm_(self.non_q_params, 0)
+        if graph_learning_stop == True:
+            torch.nn.utils.clip_grad_norm_(self.non_q_params, 0)
         # for name, param in self.func_glcn.named_parameters():
         #     if param.requires_grad:
         #         print(f'{name}: gradient norm is {param.grad.norm()}')
 
-        #self.adjust_learning_rates()
         self.optimizer.step()
         self.optimizer.zero_grad()
 
