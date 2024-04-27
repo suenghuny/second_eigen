@@ -433,7 +433,7 @@ class StarCraft2Env(MultiAgentEnv):
         )
 
     def generate_num_unit_types(self, num_total_unit_types, unit_type_ids):
-        self.unit_type_ids = unit_type_ids
+        self.unit_type_ids = sorted(unit_type_ids)
         self.num_total_unit_types = num_total_unit_types
         self.n_node_features = 4 + 6 + 6 + self.num_total_unit_types + 1-8
 
@@ -1255,6 +1255,8 @@ class StarCraft2Env(MultiAgentEnv):
         unit_type_feats[self.unit_type_ids.index(str(unit.health_max) +
                                                  str(unit.shield_max) +
                                                  str(unit.radius))] = 1
+        #print(self.unit_type_ids)
+        #print(self.position_scaling_factor, unit_type_feats, unit.health_max, unit.shield_max)
         alliance_index = 0 if unit.alliance == 1 else 1
         # print(alliance_index)
         # last_action = unithistoricinfo.last_action_node

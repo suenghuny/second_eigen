@@ -38,7 +38,7 @@ if sys.platform == "linux":
     os.environ.setdefault("SC2PATH", os.path.join(os.getcwd(), "3rdparty", "StarCraftII"))
     env = REGISTRY["sc2"](map_name=cfg.map_name, seed=123, step_mul=8, replay_dir="Replays", )
 else:
-    env = StarCraft2Env(map_name = cfg.map_name)
+    env = StarCraft2Env(map_name = cfg.map_name, seed=123, step_mul=8, )
 
 
 map_name1 = cfg.map_name
@@ -221,12 +221,12 @@ def main():
     learning_rate = float(os.environ.get("learning_rate", 5e-4))            # cfg.lr
     learning_rate_graph = learning_rate  # cfg.lr
     num_episode = 500000 #cfg.num_episode
-    train_start = int(os.environ.get("train_start", 2000))# cfg.train_start
+    train_start = int(os.environ.get("train_start", 10))# cfg.train_start
     epsilon = float(os.environ.get("epsilon", 0.05))#cfg.epsilon
     min_epsilon = float(os.environ.get("min_epsilon", 0.05)) #cfg.min_epsilon
     anneal_steps = int(os.environ.get("anneal_steps", 50000))#cfg.anneal_steps
-    gamma1 = float(os.environ.get("gamma1", 0.1))
-    gamma2 = float(os.environ.get("gamma2", 5))
+    gamma1 = float(os.environ.get("gamma1", 0))
+    gamma2 = float(os.environ.get("gamma2", 0))
 
     anneal_episodes_graph_variance =float(os.environ.get("anneal_episodes_graph_variance",float('inf')))
     min_graph_variance = float(os.environ.get("min_graph_variance", 0.01))
@@ -318,9 +318,9 @@ def main():
                 wr_df.to_csv(output_dir+"win_rate_map_name_{}_lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.csv".format(map_name1, learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
                 if win_rate >= 0.3:
                     agent.save_model(output_dir, e)
-                if win_rate >= 0.3:
-                    if bool(os.environ.get("schedule", True)) == True:
-                        agent.optimizer.param_groups[1]['lr'] = 0
+                # if win_rate >= 0.3:
+                #     if bool(os.environ.get("schedule", True)) == True:
+                #         agent.optimizer.param_groups[1]['lr'] = 0
             else:
                 wr_df = pd.DataFrame(win_rates)
                 wr_df.to_csv("win_rate_map_name_{}_GNN_{}_lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}.csv".format(map_name1, learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
