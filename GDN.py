@@ -670,23 +670,18 @@ class Agent(nn.Module):
             graph_loss = gamma1 * lap_quad - gamma2 * gamma1 * sec_eig_upperbound
             loss = graph_loss+rl_loss
 
+        # #print(loss, cum_losses_old)
         # ratio = loss/cum_losses_old
+        # eps_clip = float(os.environ.get("grad_clip", 0.1))
+        # #print(ratio, torch.clamp(ratio, 1 - eps_clip, 1 + eps_clip))
         # surr1 = ratio*loss
-        # surr2 = torch.clamp(ratio, 1 - self.eps_clip, 1 + self.eps_clip) * loss
-        # loss = torch.min(surr1, surr2)
-        # surr1 = ratio * (advantage_i.detach().squeeze())
-        # surr2 = torch.clamp(ratio, 1 - self.eps_clip, 1 + self.eps_clip) * (advantage_i.detach().squeeze())
-        # entropy = -(pi * torch.log(pi)).sum(1).mean()
-        #
-        # if n == 0:
-        #     surr = torch.min(surr1, surr2).mean() / num_agent  # +0.01*entropy.mean()/num_agent
+        # surr2 = torch.clamp(ratio, 1 - eps_clip, 1 + eps_clip) * loss
+        # print(surr1, surr2)
 
         loss.backward()
         grad_clip = float(os.environ.get("grad_clip", 10))
         torch.nn.utils.clip_grad_norm_(self.eval_params, grad_clip)
         torch.nn.utils.clip_grad_norm_(self.graph_params, grad_clip)
-        # for name, param in self.eval_params:
-        #     print(name)
         if graph_learning_stop == True:
             torch.nn.utils.clip_grad_norm_(self.non_q_params, 0)
 

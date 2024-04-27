@@ -285,12 +285,12 @@ def main():
     q_t = [] #
     cum_losses = [1]
     win_rate_count = 0
-    graph_learing_stop = False
+    graph_learning_stop = False
     for e in range(num_episode):
         if cfg.given_edge == True:
             episode_reward, epsilon, t, eval = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer, graph_learing_stop)
         else:
-            episode_reward, epsilon, t, eval, laplacian_quadratic, second_eig_upperbound, rl_loss, q_tot, cum_losses = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer, np.mean(cum_losses), graph_learing_stop)
+            episode_reward, epsilon, t, eval, laplacian_quadratic, second_eig_upperbound, rl_loss, q_tot, cum_losses = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer, np.mean(cum_losses), graph_learning_stop)
             print("upper_bound", second_eig_upperbound)
         initializer = False
         epi_r.append(episode_reward)
@@ -335,8 +335,8 @@ def main():
                     agent.save_model(output_dir, e)
                     win_rate_count += 1
 
-                if win_rate_count >= 3:
-                    graph_learing_stop = True
+                if win_rate_count >= 2:
+                    graph_learning_stop = True
 
 
 
