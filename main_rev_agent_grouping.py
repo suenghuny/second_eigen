@@ -300,9 +300,9 @@ def main():
         q_t.append(q_tot)
         if e % 1000 == 0:#
             if vessl_on == True:
-                agent.save_model(output_dir, e)
+                agent.save_model(output_dir, e, t, win_rate = 0)
             else:
-                agent.save_model(output_dir, e)
+                agent.save_model(output_dir, e, t, win_rate = 0)
 
         if e % 10 == 1:
             if vessl_on == True:
