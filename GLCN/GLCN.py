@@ -260,9 +260,13 @@ class GLCN(nn.Module):
                             X_past = H
                             Wh = H @ self.Ws[k]
                             a = self._prepare_attentional_mechanism_input(Wh, Wh, k = k)
-                            zero_vec = -9e15 * torch.ones_like(A)
 
+
+                            zero_vec = -9e15 * torch.ones_like(A)
                             a = torch.where(A > 0, A*a, zero_vec)
+                            #a = A * a
+                            #print(a)
+                            #a = torch.where(a < -1e8, zero_vec, a)
                             a = F.softmax(a, dim=1)
                             H = F.relu(torch.matmul(a, Wh))
                             if self.skip_connection == True:
