@@ -263,7 +263,7 @@ def main():
                    env = None
                   )
     if load_model==True:
-        agent.load_model("episode61790.pt")#
+        agent.load_model("episode67190.pt")#
     t = 0
     epi_r = []
     win_rates = []
