@@ -231,7 +231,7 @@ def main():
     learning_rate = float(os.environ.get("learning_rate", 5.0e-4))            # cfg.lr
     learning_rate_graph = learning_rate  # cfg.lr
     num_episode = 500000 #cfg.num_episode
-    train_start = int(os.environ.get("train_start", 10))# cfg.train_start
+    train_start = int(os.environ.get("train_start", 1300))# cfg.train_start
     epsilon = float(os.environ.get("epsilon", 0.05))#cfg.epsilon
     min_epsilon = float(os.environ.get("min_epsilon", 0.05)) #cfg.min_epsilon
     anneal_steps = int(os.environ.get("anneal_steps", 50000))#cfg.anneal_steps
