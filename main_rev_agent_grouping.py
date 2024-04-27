@@ -178,7 +178,7 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
 
         t += 1
         step += 1
-        if (t % 150 == 0) and (t >0):
+        if (t % 150 == 0) and (t >0) and (e>train_start):
             eval = True
         if e >= train_start:
             if cfg.given_edge == True:
