@@ -395,13 +395,22 @@ class Agent(nn.Module):
             print(f"An error occurred while loading the model: {e}")
 
     def adjust_learning_rates(self):
-        q_params = list(self.Q.parameters())
-        for group in self.optimizer.param_groups:
-            for param in group['params']:
-                # self.Q의 파라미터를 확인하고 그 외의 파라미터의 그래디언트를 0으로 설정
-                if param not in q_params:
-                    if param.grad is not None:
-                        param.grad.data.zero_()
+        opt_state_dict = self.optimizer.state_dict()
+
+        # 각 파라미터 그룹을 순회하면서 learning rate를 조정합니다
+        for group in opt_state_dict['param_groups']:
+            # 이 파라미터 그룹에 속한 파라미터의 ID를 추출합니다
+            params_in_group = {id(self.Q.parameters()): 'self.Q'}
+
+            # 파라미터 그룹의 각 파라미터를 검사합니다
+            for p in group['params']:
+                # self.Q의 파라미터는 건드리지 않습니다
+                if p not in params_in_group:
+                    # Learning rate을 0으로 설정합니다
+                    group['lr'] = 0
+
+        # 수정된 state_dict을 optimizer에 다시 로드합니다
+        self.optimizer.load_state_dict(opt_state_dict)
     def get_node_representation_temp(self, node_feature, agent_feature, edge_index_obs,edge_index_comm, n_agent,
                                     dead_masking,
                                      mini_batch = False):
