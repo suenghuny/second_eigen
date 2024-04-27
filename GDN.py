@@ -351,6 +351,14 @@ class Agent(nn.Module):
             {'params': self.eval_params},
             {'params': self.graph_params, 'lr': learning_rate_graph}
         ]
+
+        self.non_q_params = list(self.func_glcn.parameters())  + \
+                           list(self.VDN.parameters()) + \
+                           list(self.node_representation.parameters()) + \
+                           list(self.node_representation_comm.parameters()) + \
+                           list(self.func_obs.parameters()) + \
+                           list(self.action_representation.parameters())
+
         self.optimizer = optim.RMSprop(param_groups, lr=learning_rate)
 
 
@@ -397,17 +405,22 @@ class Agent(nn.Module):
     def adjust_learning_rates(self):
         opt_state_dict = self.optimizer.state_dict()
 
+        # self.Q에 해당하는 파라미터의 ID를 추출합니다
+        q_params_ids = set(id(p) for p in self.Q.parameters())
+
         # 각 파라미터 그룹을 순회하면서 learning rate를 조정합니다
         for group in opt_state_dict['param_groups']:
-            # 이 파라미터 그룹에 속한 파라미터의 ID를 추출합니다
-            params_in_group = {id(self.Q.parameters()): 'self.Q'}
-
             # 파라미터 그룹의 각 파라미터를 검사합니다
             for p in group['params']:
-                # self.Q의 파라미터는 건드리지 않습니다
-                if p not in params_in_group:
-                    # Learning rate을 0으로 설정합니다
+                # 파라미터 객체의 실제 id를 추출
+                p_id = id(p)
+                # self.Q의 파라미터가 아닐 경우에만 Learning rate을 0으로 설정합니다
+                print(p_id, q_params_ids)
+                if p_id not in q_params_ids:
                     group['lr'] = 0
+                else:
+                    # self.Q의 파라미터에 해당하는 경우, 현재 lr을 출력
+                    print(f"self.Q 파라미터의 학습률은 {group['lr']}입니다")
 
         # 수정된 state_dict을 optimizer에 다시 로드합니다
         self.optimizer.load_state_dict(opt_state_dict)
@@ -661,7 +674,12 @@ class Agent(nn.Module):
         grad_clip = float(os.environ.get("grad_clip", 10))
         torch.nn.utils.clip_grad_norm_(self.eval_params, grad_clip)
         torch.nn.utils.clip_grad_norm_(self.graph_params, grad_clip)
-        self.adjust_learning_rates()
+        # for name, param in self.eval_params:
+        #     print(name)
+
+        torch.nn.utils.clip_grad_norm_(self.non_q_params, 0)
+
+        #self.adjust_learning_rates()
         self.optimizer.step()
         self.optimizer.zero_grad()
 
