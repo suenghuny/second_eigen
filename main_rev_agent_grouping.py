@@ -9,7 +9,7 @@ import os
 import time
 from cfg import get_cfg
 cfg = get_cfg()
-load_model = bool(os.environ.get("load_model", False))
+load_model = bool(os.environ.get("load_model", True))
 
 
 vessl_on = cfg.vessl_on
@@ -179,7 +179,7 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
 
         t += 1
         step += 1
-        if (t % 5000 == 0) and (t >0) and (e>train_start):
+        if (t % 200 == 0) and (t >0) and (e>train_start):
             eval = True
         if e >= train_start:
             if cfg.given_edge == True:
