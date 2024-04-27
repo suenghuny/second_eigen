@@ -395,10 +395,11 @@ class Agent(nn.Module):
             print(f"An error occurred while loading the model: {e}")
 
     def adjust_learning_rates(self):
+        q_params = list(self.Q.parameters())
         for group in self.optimizer.param_groups:
             for param in group['params']:
                 # self.Q의 파라미터를 확인하고 그 외의 파라미터의 그래디언트를 0으로 설정
-                if param not in self.Q.parameters():
+                if param not in q_params:
                     if param.grad is not None:
                         param.grad.data.zero_()
     def get_node_representation_temp(self, node_feature, agent_feature, edge_index_obs,edge_index_comm, n_agent,
