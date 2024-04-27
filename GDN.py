@@ -600,7 +600,7 @@ class Agent(nn.Module):
 
 
 
-    def learn(self, e):
+    def learn(self, cum_losses_old, graph_learning_stop):
         self.eval(train = True)
         node_features, actions, action_features, edge_indices_enemy, edge_indices_ally, rewards, dones, node_features_next, action_features_next, edge_indices_enemy_next, edge_indices_ally_next, avail_actions_next,dead_masking, agent_feature, agent_feature_next = self.buffer.sample()
 
@@ -670,14 +670,25 @@ class Agent(nn.Module):
             graph_loss = gamma1 * lap_quad - gamma2 * gamma1 * sec_eig_upperbound
             loss = graph_loss+rl_loss
 
+        # ratio = loss/cum_losses_old
+        # surr1 = ratio*loss
+        # surr2 = torch.clamp(ratio, 1 - self.eps_clip, 1 + self.eps_clip) * loss
+        # loss = torch.min(surr1, surr2)
+        # surr1 = ratio * (advantage_i.detach().squeeze())
+        # surr2 = torch.clamp(ratio, 1 - self.eps_clip, 1 + self.eps_clip) * (advantage_i.detach().squeeze())
+        # entropy = -(pi * torch.log(pi)).sum(1).mean()
+        #
+        # if n == 0:
+        #     surr = torch.min(surr1, surr2).mean() / num_agent  # +0.01*entropy.mean()/num_agent
+
         loss.backward()
         grad_clip = float(os.environ.get("grad_clip", 10))
         torch.nn.utils.clip_grad_norm_(self.eval_params, grad_clip)
         torch.nn.utils.clip_grad_norm_(self.graph_params, grad_clip)
         # for name, param in self.eval_params:
         #     print(name)
-
-        torch.nn.utils.clip_grad_norm_(self.non_q_params, 0)
+        if graph_learning_stop == True:
+            torch.nn.utils.clip_grad_norm_(self.non_q_params, 0)
 
         #self.adjust_learning_rates()
         self.optimizer.step()
@@ -690,9 +701,9 @@ class Agent(nn.Module):
             target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
         for target_param, local_param in zip(self.VDN_target.parameters(), self.VDN.parameters()):
             target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
+        self.eval(train=False)
         if cfg.given_edge == True:
             return loss
         else:
             return loss, lap_quad.tolist(), sec_eig_upperbound.tolist(), rl_loss.tolist(), q_tot.tolist()
 
-        self.eval(train=False)

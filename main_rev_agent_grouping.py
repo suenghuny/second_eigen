@@ -9,7 +9,7 @@ import os
 import time
 from cfg import get_cfg
 cfg = get_cfg()
-load_model = bool(os.environ.get("load_model", True))
+load_model = bool(os.environ.get("load_model", False))
 
 
 vessl_on = cfg.vessl_on
@@ -115,7 +115,7 @@ def evaluation(env, agent, num_eval):
 
 
 
-def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer):
+def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer, cum_losses_old, graph_learning_stop):
     max_episode_limit = env.episode_limit
     if initializer == False:
         env.reset()
@@ -133,6 +133,7 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
     num_agent = env.get_env_info()["n_agents"]
     action_history = torch.zeros([num_agent , env.get_env_info()["node_features"] + 5])
     save = True
+    cum_losses = list()
     while (not done) and (step < max_episode_limit):
         """
         Note: edge index 추출에 세가지 방법
@@ -178,13 +179,14 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
 
         t += 1
         step += 1
-        if (t % 150 == 0) and (t >0) and (e>train_start):
+        if (t % 5000 == 0) and (t >0) and (e>train_start):
             eval = True
         if e >= train_start:
             if cfg.given_edge == True:
-                loss = agent.learn(e = e)
+                loss = agent.learn(cum_losses_old)
             else:
-                loss, laplacian_quadratic, sec_eig_upperbound, rl_loss, q_tot = agent.learn(e = e)
+                loss, laplacian_quadratic, sec_eig_upperbound, rl_loss, q_tot = agent.learn(cum_losses_old, graph_learning_stop)
+                cum_losses.append(loss.detach().item())
                 laplacian_quadratic_list.append(laplacian_quadratic)
                 sec_eig_upperbound_list.append(sec_eig_upperbound)
                 rl_losses.append(rl_loss)
@@ -204,7 +206,8 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
                np.mean(laplacian_quadratic_list), \
                np.mean(sec_eig_upperbound_list), \
                np.mean(rl_losses),\
-               np.mean(q_tots)
+               np.mean(q_tots),\
+               cum_losses
 
 
 
@@ -225,11 +228,11 @@ def main():
     buffer_size = int(os.environ.get("buffer_size", 100000))       # cfg.buffer_size
     batch_size = int(os.environ.get("batch_size", 24))             # cfg.batch_size
     gamma = 0.99                                                            # cfg.gamma
-    learning_rate = float(os.environ.get("learning_rate", 5e-4))            # cfg.lr
+    learning_rate = float(os.environ.get("learning_rate", 5.0e-4))            # cfg.lr
     learning_rate_graph = learning_rate  # cfg.lr
     num_episode = 500000 #cfg.num_episode
     train_start = int(os.environ.get("train_start", 10))# cfg.train_start
-    epsilon = float(os.environ.get("epsilon", 0.05))#cfg.epsilon
+    epsilon = float(os.environ.get("epsilon", 1))#cfg.epsilon
     min_epsilon = float(os.environ.get("min_epsilon", 0.05)) #cfg.min_epsilon
     anneal_steps = int(os.environ.get("anneal_steps", 50000))#cfg.anneal_steps
     gamma1 = float(os.environ.get("gamma1", 0.1))
@@ -280,11 +283,14 @@ def main():
     sec_eig = []
     rl_lo = []
     q_t = [] #
+    cum_losses = [1]
+    win_rate_count = 0
+    graph_learing_stop = False
     for e in range(num_episode):
         if cfg.given_edge == True:
-            episode_reward, epsilon, t, eval = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer)
+            episode_reward, epsilon, t, eval = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer, graph_learing_stop)
         else:
-            episode_reward, epsilon, t, eval, laplacian_quadratic, second_eig_upperbound, rl_loss, q_tot = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer)
+            episode_reward, epsilon, t, eval, laplacian_quadratic, second_eig_upperbound, rl_loss, q_tot, cum_losses = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer, np.mean(cum_losses), graph_learing_stop)
             print("upper_bound", second_eig_upperbound)
         initializer = False
         epi_r.append(episode_reward)
@@ -327,6 +333,13 @@ def main():
                 wr_df.to_csv(output_dir+"win_rate_map_name_{}_lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.csv".format(map_name1, learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
                 if win_rate >= 0.3:
                     agent.save_model(output_dir, e)
+                    win_rate_count += 1
+
+                if win_rate_count >= 3:
+                    graph_learing_stop = True
+
+
+
                 # if win_rate >= 0.3:
                 #     if bool(os.environ.get("schedule", True)) == True:
                 #         agent.optimizer.param_groups[1]['lr'] = 0
