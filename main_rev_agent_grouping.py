@@ -335,7 +335,7 @@ def main():
                     agent.save_model(output_dir, e, t, win_rate)
                     win_rate_count += 1
 
-                if win_rate_count >= 2:
+                if win_rate_count >= 100:
                     graph_learning_stop = True
 
 
