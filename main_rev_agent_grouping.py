@@ -271,7 +271,7 @@ def main():
     sec_eig = []
     rl_lo = []
     q_t = [] #
-    for e in range(num_episode):
+    for e in range(67191, num_episode):
         if cfg.given_edge == True:
             episode_reward, epsilon, t, eval = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer)
         else:
