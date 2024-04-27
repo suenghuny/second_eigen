@@ -179,7 +179,7 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
 
         t += 1
         step += 1
-        if (t % 200 == 0) and (t >0) and (e>train_start):
+        if (t % 5000 == 0) and (t >0) and (e>train_start):
             eval = True
         if e >= train_start:
             if cfg.given_edge == True:
@@ -285,7 +285,7 @@ def main():
     q_t = [] #
     cum_losses = [1]
     win_rate_count = 0
-    graph_learning_stop = False
+    graph_learning_stop = True
     for e in range(num_episode):
         if cfg.given_edge == True:
             episode_reward, epsilon, t, eval = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer, graph_learing_stop)
