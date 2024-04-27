@@ -132,6 +132,7 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
     q_tots = list()
     num_agent = env.get_env_info()["n_agents"]
     action_history = torch.zeros([num_agent , env.get_env_info()["node_features"] + 5])
+    save = True
     while (not done) and (step < max_episode_limit):
         """
         Note: edge index 추출에 세가지 방법
@@ -167,6 +168,12 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
         reward, done, info = env.step(action)
         agent.buffer.memory(node_feature, action, action_feature, edge_index_enemy, edge_index_ally, reward,
                             done, avail_action, dead_masking, agent_feature.tolist())
+
+        # if len(agent.buffer.buffer[0]) >100000 and save == True:
+        #     print("저장")
+        #     agent.buffer.save_buffer()
+        #     save = False
+
         episode_reward += reward
 
         t += 1
@@ -221,7 +228,7 @@ def main():
     learning_rate = float(os.environ.get("learning_rate", 5.0e-5))            # cfg.lr
     learning_rate_graph = learning_rate  # cfg.lr
     num_episode = 500000 #cfg.num_episode
-    train_start = int(os.environ.get("train_start", 10))# cfg.train_start
+    train_start = int(os.environ.get("train_start", 100))# cfg.train_start
     epsilon = float(os.environ.get("epsilon", 0.05))#cfg.epsilon
     min_epsilon = float(os.environ.get("min_epsilon", 0.05)) #cfg.min_epsilon
     anneal_steps = int(os.environ.get("anneal_steps", 50000))#cfg.anneal_steps
@@ -264,6 +271,8 @@ def main():
                   )
     if load_model==True:
         agent.load_model("episode67190.pt")#
+        # agent.buffer.load_buffer()
+        # print("출력", len(agent.buffer.buffer[9]))
     t = 0
     epi_r = []
     win_rates = []

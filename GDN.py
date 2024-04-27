@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import random
+import pickle
 from collections import deque
 from torch.distributions import Categorical
 import numpy as np
@@ -76,8 +77,6 @@ class NodeEmbedding(nn.Module):
 class Replay_Buffer:
     def __init__(self, buffer_size, batch_size, num_agent):
         self.buffer = deque()
-
-
         self.step_count_list = list()
         for _ in range(10):
             self.buffer.append(deque(maxlen=buffer_size))
@@ -104,6 +103,18 @@ class Replay_Buffer:
         if self.step_count < self.buffer_size - 1:
             self.step_count_list.append(self.step_count)
             self.step_count += 1
+    def save_buffer(self):
+        buffer_dict = {'buffer':self.buffer, 'step_count_list':self.step_count_list, 'step_count':self.step_count}
+        with open('deque.pkl', 'wb') as f:
+            pickle.dump(buffer_dict, f)
+
+    def load_buffer(self):
+        with open('deque.pkl', 'rb') as f:
+            loaded_d = pickle.load(f)
+            self.buffer = loaded_d['buffer']
+            self.step_count_list = loaded_d['step_count_list']
+            self.step_count = loaded_d['step_count']
+
     def generating_mini_batch(self, datas, batch_idx, cat):
         for s in batch_idx:
             if cat == 'node_feature':
@@ -383,7 +394,13 @@ class Agent(nn.Module):
         except Exception as e:
             print(f"An error occurred while loading the model: {e}")
 
-
+    def adjust_learning_rates(self):
+        for group in self.optimizer.param_groups:
+            for param in group['params']:
+                # self.Q의 파라미터를 확인하고 그 외의 파라미터의 그래디언트를 0으로 설정
+                if param not in self.Q.parameters():
+                    if param.grad is not None:
+                        param.grad.data.zero_()
     def get_node_representation_temp(self, node_feature, agent_feature, edge_index_obs,edge_index_comm, n_agent,
                                     dead_masking,
                                      mini_batch = False):
@@ -631,12 +648,10 @@ class Agent(nn.Module):
             loss = graph_loss+rl_loss
 
         loss.backward()
-        # for name, param in self.func_glcn.named_parameters():
-        #     if param.requires_grad:
-        #         print(f'{name}: gradient norm is {param.grad.norm()}')
-        grad_clip = float(os.environ.get("grad_clip", 0.01))
+        grad_clip = float(os.environ.get("grad_clip", 10))
         torch.nn.utils.clip_grad_norm_(self.eval_params, grad_clip)
         torch.nn.utils.clip_grad_norm_(self.graph_params, grad_clip)
+        self.adjust_learning_rates()
         self.optimizer.step()
         self.optimizer.zero_grad()
 
