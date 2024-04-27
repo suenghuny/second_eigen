@@ -9,7 +9,7 @@ import os
 import time
 from cfg import get_cfg
 cfg = get_cfg()
-load_model = bool(os.environ.get("load_model", False))
+load_model = bool(os.environ.get("load_model", True))
 
 
 vessl_on = cfg.vessl_on
@@ -177,6 +177,7 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
             if cfg.given_edge == True:
                 loss = agent.learn(e = e)
             else:
+
                 loss, laplacian_quadratic, sec_eig_upperbound, rl_loss, q_tot = agent.learn(e = e)
                 laplacian_quadratic_list.append(laplacian_quadratic)
                 sec_eig_upperbound_list.append(sec_eig_upperbound)
@@ -221,12 +222,12 @@ def main():
     learning_rate = float(os.environ.get("learning_rate", 5e-4))            # cfg.lr
     learning_rate_graph = learning_rate  # cfg.lr
     num_episode = 500000 #cfg.num_episode
-    train_start = int(os.environ.get("train_start", 10))# cfg.train_start
-    epsilon = float(os.environ.get("epsilon", 1.0))#cfg.epsilon
+    train_start = int(os.environ.get("train_start", 100))# cfg.train_start
+    epsilon = float(os.environ.get("epsilon", 0.05))#cfg.epsilon
     min_epsilon = float(os.environ.get("min_epsilon", 0.05)) #cfg.min_epsilon
     anneal_steps = int(os.environ.get("anneal_steps", 50000))#cfg.anneal_steps
-    gamma1 = float(os.environ.get("gamma1", 0.5))
-    gamma2 = float(os.environ.get("gamma2", 0.05))
+    gamma1 = float(os.environ.get("gamma1", 0.1))
+    gamma2 = float(os.environ.get("gamma2", 0.5))#
 
     anneal_episodes_graph_variance =float(os.environ.get("anneal_episodes_graph_variance",float('inf')))
     min_graph_variance = float(os.environ.get("min_graph_variance", 0.01))
@@ -263,7 +264,8 @@ def main():
                    env = None
                   )
     if load_model==True:
-        agent.load_model("episode12000.pt")
+        print('load_model')
+        agent.load_model("episode67190.pt") ###
     t = 0
     epi_r = []
     win_rates = []
@@ -322,7 +324,7 @@ def main():
                 wr_df.to_csv(output_dir+"win_rate_map_name_{}_lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.csv".format(map_name1, learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
                 if win_rate >= 0.3:
                     agent.save_model(output_dir, e)
-                if win_rate >= 0.5:
+                if win_rate >= 0.4:
                     if bool(os.environ.get("schedule", True)) == True:
                         agent.optimizer.param_groups[1]['lr'] = 0
             else:
