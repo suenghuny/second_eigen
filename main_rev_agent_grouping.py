@@ -9,7 +9,7 @@ import os
 import time
 from cfg import get_cfg
 cfg = get_cfg()
-load_model = bool(os.environ.get("load_model", False))
+load_model = bool(os.environ.get("load_model", True))
 
 
 vessl_on = cfg.vessl_on
