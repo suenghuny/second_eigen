@@ -332,7 +332,7 @@ def main():
                 wr_df = pd.DataFrame(win_rates)
                 wr_df.to_csv(output_dir+"win_rate_map_name_{}_lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}_nrepresentationcomm_{}.csv".format(map_name1, learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
                 if win_rate >= 0.3:
-                    agent.save_model(output_dir, e)
+                    agent.save_model(output_dir, e, t, win_rate)
                     win_rate_count += 1
 
                 if win_rate_count >= 2:

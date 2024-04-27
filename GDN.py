@@ -362,7 +362,7 @@ class Agent(nn.Module):
         self.optimizer = optim.RMSprop(param_groups, lr=learning_rate)
 
 
-    def save_model(self, file_dir, e):
+    def save_model(self, file_dir, e, t, win_rate):
         torch.save({
                         "1": self.Q.state_dict(),
                         "2": self.Q_tar.state_dict(),
@@ -373,7 +373,7 @@ class Agent(nn.Module):
                         "7": self.node_representation.state_dict(),
                         "optimizer_state_dict": self.optimizer.state_dict()
                         },
-                       file_dir+ "episode%d.pt" % e)
+                       file_dir+ "episode{}_t_{}_win_{}.pt".format(e, t, win_rate))
 
     # self.node_representation
     # self.node_representation_comm
