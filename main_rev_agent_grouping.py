@@ -237,10 +237,8 @@ def main():
     anneal_steps = int(os.environ.get("anneal_steps", 50000))#cfg.anneal_steps
     gamma1 = float(os.environ.get("gamma1", 0.1))
     gamma2 = float(os.environ.get("gamma2", 5))
-
     anneal_episodes_graph_variance =float(os.environ.get("anneal_episodes_graph_variance",float('inf')))
     min_graph_variance = float(os.environ.get("min_graph_variance", 0.01))
-
     anneal_epsilon = (epsilon - min_epsilon) / anneal_steps
     initializer = True
 
@@ -272,10 +270,7 @@ def main():
                    min_graph_variance = min_graph_variance,
                    env = None
                   )
-    if load_model==True:
-        agent.load_model("episode67190.pt")#
-        # agent.buffer.load_buffer()
-        # print("출력", len(agent.buffer.buffer[9]))
+
     t = 0
     epi_r = []
     win_rates = []
@@ -285,10 +280,10 @@ def main():
     q_t = [] #
     cum_losses = [1]
     win_rate_count = 0
-    graph_learning_stop = True
+    graph_learning_stop  = False
     for e in range(num_episode):
         if cfg.given_edge == True:
-            episode_reward, epsilon, t, eval = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer, graph_learing_stop)
+            episode_reward, epsilon, t, eval = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer, graph_learning_stop)
         else:
             episode_reward, epsilon, t, eval, laplacian_quadratic, second_eig_upperbound, rl_loss, q_tot, cum_losses = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer, np.mean(cum_losses), graph_learning_stop)
             print("upper_bound", second_eig_upperbound)
@@ -335,17 +330,13 @@ def main():
                     agent.save_model(output_dir, e, t, win_rate)
                     win_rate_count += 1
 
-                if win_rate_count >= 100:
-                    graph_learning_stop = True
 
-
-
-                # if win_rate >= 0.3:
-                #     if bool(os.environ.get("schedule", True)) == True:
-                #         agent.optimizer.param_groups[1]['lr'] = 0
             else:
                 wr_df = pd.DataFrame(win_rates)
                 wr_df.to_csv("win_rate_map_name_{}_GNN_{}_lr_{}_hiddensizeobs_{}_hiddensizeq_{}_nrepresentationobs_{}.csv".format(map_name1, learning_rate, hidden_size_obs, hidden_size_Q, n_representation_obs, n_representation_comm))
+                if win_rate >= 0.4:
+                    agent.save_model(output_dir, e, t, win_rate)
+                    win_rate_count += 1
 
 
 
