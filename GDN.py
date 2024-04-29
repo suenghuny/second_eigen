@@ -352,7 +352,7 @@ class Agent(nn.Module):
             {'params': self.graph_params, 'lr': learning_rate_graph}
         ]
 
-        self.non_q_params = [p for n, p in self.func_glcn.named_parameters() if n == 'a_link']+\
+        self.non_q_params = list(self.func_glcn.parameters())  + \
                            list(self.VDN.parameters()) + \
                            list(self.node_representation.parameters()) + \
                            list(self.node_representation_comm.parameters()) + \
