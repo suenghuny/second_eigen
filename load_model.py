@@ -233,7 +233,7 @@ def main():
     epsilon = float(os.environ.get("epsilon", 0.05))#cfg.epsilon
     min_epsilon = float(os.environ.get("min_epsilon", 0.05)) #cfg.min_epsilon
     anneal_steps = int(os.environ.get("anneal_steps", 50000))#cfg.anneal_steps
-    gamma1 = float(os.environ.get("gamma1", 0.1))
+    gamma1 = float(os.environ.get("gamma1", 5))
     gamma2 = float(os.environ.get("gamma2", 5))
 
     anneal_episodes_graph_variance =float(os.environ.get("anneal_episodes_graph_variance",float('inf')))
@@ -270,7 +270,7 @@ def main():
                    min_graph_variance = min_graph_variance,
                    env = None
                   )
-    agent.load_model("episode67190.pt")#
+    agent.load_model("episode92952.pt")#
     t = 0
     epi_r = []
     win_rates = []
