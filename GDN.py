@@ -677,7 +677,7 @@ class Agent(nn.Module):
             obs_next, _, _, _ = self.get_node_representation_temp(node_features_next, agent_feature_next, edge_indices_enemy_next, edge_indices_ally_next,
                                                                   n_agent=n_agent,
                                                                   dead_masking=dead_masking,
-                                                                  mini_batch=True)
+                                                                  mini_batch=True, target = True)
             gamma1 = self.gamma1
             gamma2 = self.gamma2
             lap_quad, sec_eig_upperbound, L = get_graph_loss(X, A, self.bn)
@@ -738,24 +738,24 @@ class Agent(nn.Module):
         for target_param, local_param in zip(self.VDN_target.parameters(), self.VDN.parameters()):
             target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
 
-        # for target_param, local_param in zip(self.node_representation_tar.parameters(), self.node_representation.parameters()):
-        #     target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
-        #
-        #
-        # for target_param, local_param in zip(self.node_representation_comm_tar.parameters(), self.node_representation_comm.parameters()):
-        #     target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
-        #
-        # for target_param, local_param in zip(self.action_representation_tar.parameters(), self.action_representation.parameters()):
-        #     target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
-        #
-        # for target_param, local_param in zip(self.func_obs_tar.parameters(),
-        #                                      self.func_obs.parameters()):
-        #     target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
-        #
-        #
-        # for target_param, local_param in zip(self.func_glcn_tar.parameters(),
-        #                                      self.func_glcn.parameters()):
-        #     target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
+        for target_param, local_param in zip(self.node_representation_tar.parameters(), self.node_representation.parameters()):
+            target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
+
+
+        for target_param, local_param in zip(self.node_representation_comm_tar.parameters(), self.node_representation_comm.parameters()):
+            target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
+
+        for target_param, local_param in zip(self.action_representation_tar.parameters(), self.action_representation.parameters()):
+            target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
+
+        for target_param, local_param in zip(self.func_obs_tar.parameters(),
+                                             self.func_obs.parameters()):
+            target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
+
+
+        for target_param, local_param in zip(self.func_glcn_tar.parameters(),
+                                             self.func_glcn.parameters()):
+            target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
 
         self.eval(train=False)
         if cfg.given_edge == True:
