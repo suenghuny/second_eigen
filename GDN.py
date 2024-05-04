@@ -708,7 +708,7 @@ class Agent(nn.Module):
         q_tot_tar = self.VDN_target(q_tot_tar)
         td_target = rewards*self.num_agent + self.gamma* (1-dones)*q_tot_tar
         loss_func = str(os.environ.get("loss_func", "mse"))
-        var_reg = float(os.environ.get("gamma3", 0.8))
+        var_reg = float(os.environ.get("gamma3", 0.01))
         if cfg.given_edge == True:
             rl_loss = F.mse_loss(q_tot, td_target.detach())+var_reg*var_
             loss = rl_loss
@@ -756,8 +756,7 @@ class Agent(nn.Module):
             target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
 
 
-        for target_param, local_param in zip(self.func_glcn_tar.parameters(),
-                                             self.func_glcn.parameters()):
+        for target_param, local_param in zip(self.func_glcn_tar.parameters(),self.func_glcn.parameters()):
             target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
 
         self.eval(train=False)
