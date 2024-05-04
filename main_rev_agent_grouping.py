@@ -237,8 +237,10 @@ def main():
     anneal_steps = int(os.environ.get("anneal_steps", 50000))#cfg.anneal_steps
     gamma1 = float(os.environ.get("gamma1", 0.1))
     gamma2 = float(os.environ.get("gamma2", 5))
+
     anneal_episodes_graph_variance =float(os.environ.get("anneal_episodes_graph_variance",float('inf')))
     min_graph_variance = float(os.environ.get("min_graph_variance", 0.01))
+
     anneal_epsilon = (epsilon - min_epsilon) / anneal_steps
     initializer = True
 
@@ -283,7 +285,7 @@ def main():
     graph_learning_stop  = False
     for e in range(num_episode):
         if cfg.given_edge == True:
-            episode_reward, epsilon, t, eval = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer, graph_learning_stop)
+            episode_reward, epsilon, t, eval = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer, graph_learing_stop)
         else:
             episode_reward, epsilon, t, eval, laplacian_quadratic, second_eig_upperbound, rl_loss, q_tot, cum_losses = train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, initializer, np.mean(cum_losses), graph_learning_stop)
             print("upper_bound", second_eig_upperbound)

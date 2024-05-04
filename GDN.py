@@ -655,23 +655,20 @@ class Agent(nn.Module):
 
         q_tot = torch.stack(q, dim=1)
         q_tot_tar = torch.stack(q_tar, dim=1)
-        var_ = torch.mean(torch.var(q_tot, dim=1))
-        # print(q_tot.shape)
         q_tot = self.VDN(q_tot)
         q_tot_tar = self.VDN_target(q_tot_tar)
-        td_target = rewards * self.num_agent + self.gamma * (1 - dones) * q_tot_tar
+        td_target = rewards*self.num_agent + self.gamma* (1-dones)*q_tot_tar
         loss_func = str(os.environ.get("loss_func", "mse"))
-        var_reg = float(os.environ.get("gamma3", 0.8))
         if cfg.given_edge == True:
-            rl_loss = F.mse_loss(q_tot, td_target.detach()) + var_reg * var_
+            rl_loss = F.mse_loss(q_tot, td_target.detach())
             loss = rl_loss
         else:
             if loss_func == 'huber':
-                rl_loss = F.huber_loss(q_tot, td_target.detach())+ var_reg * var_
+                rl_loss = F.huber_loss(q_tot, td_target.detach())
             else:
-                rl_loss = F.mse_loss(q_tot, td_target.detach())+ var_reg * var_
+                rl_loss = F.mse_loss(q_tot, td_target.detach())
             graph_loss = gamma1 * lap_quad - gamma2 * gamma1 * sec_eig_upperbound
-            loss = graph_loss + rl_loss
+            loss = graph_loss+rl_loss
 
         # #print(loss, cum_losses_old)
         # ratio = loss/cum_losses_old
