@@ -708,8 +708,9 @@ class Agent(nn.Module):
         q_tot_tar = self.VDN_target(q_tot_tar)
         td_target = rewards*self.num_agent + self.gamma* (1-dones)*q_tot_tar
         loss_func = str(os.environ.get("loss_func", "mse"))
+        var_reg = float(os.environ.get("gamma3", 0.8))
         if cfg.given_edge == True:
-            rl_loss = F.mse_loss(q_tot, td_target.detach())+0.8*var_
+            rl_loss = F.mse_loss(q_tot, td_target.detach())+var_reg*var_
             loss = rl_loss
         else:
             if loss_func == 'huber':
