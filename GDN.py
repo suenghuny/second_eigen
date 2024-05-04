@@ -716,7 +716,7 @@ class Agent(nn.Module):
             if loss_func == 'huber':
                 rl_loss = F.huber_loss(q_tot, td_target.detach())
             else:
-                rl_loss = F.mse_loss(q_tot, td_target.detach())
+                rl_loss = F.mse_loss(q_tot, td_target.detach())+var_reg*var_
             graph_loss = gamma1 * lap_quad - gamma2 * gamma1 * sec_eig_upperbound
             loss = graph_loss+rl_loss
 
