@@ -661,7 +661,7 @@ class Agent(nn.Module):
         q_tot_tar = self.VDN_target(q_tot_tar)
         td_target = rewards * self.num_agent + self.gamma * (1 - dones) * q_tot_tar
         loss_func = str(os.environ.get("loss_func", "mse"))
-        var_reg = float(os.environ.get("gamma3", 0.8))
+        var_reg = float(os.environ.get("gamma3", 0.005))
         if cfg.given_edge == True:
             rl_loss = F.mse_loss(q_tot, td_target.detach()) + var_reg * var_
             loss = rl_loss
@@ -669,6 +669,7 @@ class Agent(nn.Module):
             if loss_func == 'huber':
                 rl_loss = F.huber_loss(q_tot, td_target.detach()) + var_reg * var_
             else:
+                #print(F.mse_loss(q_tot, td_target.detach()),var_)
                 rl_loss = F.mse_loss(q_tot, td_target.detach()) + var_reg * var_
             graph_loss = gamma1 * lap_quad - gamma2 * gamma1 * sec_eig_upperbound
             loss = graph_loss + rl_loss
