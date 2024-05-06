@@ -95,9 +95,11 @@ def train(agent, env, e, t, monitor, params):
     step = 0
     eval = False
     start = time.time()
-
+    num_agent = env.get_env_info()["n_agents"]
+    action_history = torch.zeros([num_agent, env.get_env_info()["node_features"] + 5])
     while (not done) and (step < max_episode_limit):
         node_feature, edge_index_enemy, edge_index_comm, _, dead_masking = env.get_heterogeneous_graph(heterogeneous=heterogenous)
+        agent_feature = torch.concat([torch.tensor(node_feature)[:num_agent, :-1], action_history.to('cpu')], dim=1)
         avail_action = env.get_avail_actions()
         state = env.get_state()
         n_agent = len(avail_action)
@@ -125,7 +127,6 @@ def train(agent, env, e, t, monitor, params):
                       state
                       )
         agent.put_data(transition)
-        print("??")
         episode_reward += reward
         t += 1
         step += 1

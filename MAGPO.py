@@ -238,6 +238,9 @@ class Agent:
         action = []
         probs = []
         action_embedding = self.action_representation(action_feature)
+
+        action_history_list = list()
+
         for n in range(num_agent):
             obs = node_representation[n].expand(action_size, node_representation[n].shape[0])
             obs_cat_action = torch.concat([obs, action_embedding], dim = 1)                           # shape :
@@ -246,6 +249,7 @@ class Agent:
             prob = torch.softmax(logit, dim=-1)             # 에이전트 별 확률
             m = Categorical(prob)
             u = m.sample().item()
+            action_history_list.app[u]
             action.append(u)
             probs.append(prob[u].item())
         factorized_probs = probs[:]
@@ -253,35 +257,62 @@ class Agent:
         return action, probs, factorized_probs
 
 
-    def get_node_representation_gpo(self, node_feature, edge_index_obs,edge_index_comm, n_agent, dead_masking, mini_batch = False):
+    def get_node_representation_gpo(self, node_feature,
+                                    agent_feature,
+                                    edge_index_obs,edge_index_comm, n_agent, dead_masking, mini_batch = False):
         if mini_batch == False:
             with torch.no_grad():
-                node_feature = torch.tensor(node_feature, dtype=torch.float,device=device)
+                node_feature = torch.tensor(node_feature, dtype=torch.float, device=device)
+                agent_feature = agent_feature.to(device)
                 node_embedding_obs = self.node_representation(node_feature)
-                #node_embedding_comm = self.node_representation_comm(node_feature[:,:-1])
+                node_embedding_comm = self.node_representation_comm(agent_feature)
+
                 edge_index_obs = torch.tensor(edge_index_obs, dtype=torch.long, device=device)
                 edge_index_comm = torch.tensor(edge_index_comm, dtype=torch.long, device=device)
-                node_embedding_obs = self.func_obs(X = node_embedding_obs, A = edge_index_obs)
-                #cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim = 1)
+
+                node_embedding_obs = self.func_obs(X=node_embedding_obs, A=edge_index_obs)[:n_agent, :]
+
+                cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim=1)
+
                 if cfg.given_edge == True:
-                    node_embedding = self.func_glcn(X=node_embedding_obs[:n_agent, :], A=edge_index_comm)
-                    node_embedding = self.func_glcn2(X=node_embedding, A=edge_index_comm)
+                    node_embedding = self.func_glcn(X=cat_embedding[:n_agent, :], dead_masking=dead_masking,
+                                                    A=edge_index_comm)
                     return node_embedding
+
                 else:
-                    node_embedding, A, X = self.func_glcn(dead_masking= dead_masking, X = node_embedding_obs[:n_agent, :], A = None)
+                    node_embedding, A, X = self.func_glcn(X=cat_embedding, dead_masking=dead_masking, A=None)
+                    # 오류 수정
                     return node_embedding, A, X
         else:
             node_feature = torch.tensor(node_feature, dtype=torch.float, device=device)
+            agent_feature = torch.tensor(agent_feature, dtype=torch.float, device=device)
+            batch_size = node_feature.shape[0]
+            node_size = node_feature.shape[1]
+            agent_size = agent_feature.shape[1]
+
+            # node_feature = node_feature.reshape(batch_size*node_size, -1)
+            # agent_feature = agent_feature.reshape(batch_size*agent_size, -1)
+
             node_embedding_obs = self.node_representation(node_feature)
-            # node_embedding_comm = self.node_representation_comm(node_feature[:, :, :-1])
-            node_embedding_obs = self.func_obs(X = node_embedding_obs, A = edge_index_obs, mini_batch = mini_batch)
-            # cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim=2)
+            node_embedding_comm = self.node_representation_comm(agent_feature)
+
+            # node_embedding_obs = node_embedding_obs.reshape(batch_size, node_size, -1)
+            # node_embedding_comm = node_embedding_comm.reshape(batch_size, agent_size, -1)
+
+            node_embedding_obs = self.func_obs(X=node_embedding_obs, A=edge_index_obs, mini_batch=mini_batch)[:,
+                                 :n_agent, :]
+            cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim=2)
+
             if cfg.given_edge == True:
-                node_embedding = self.func_glcn(X=node_embedding_obs[:, :n_agent, :], A=edge_index_comm, mini_batch=mini_batch)
-                node_embedding = self.func_glcn2(X=node_embedding , A=edge_index_comm, mini_batch=mini_batch)
+                node_embedding = self.func_glcn(X=cat_embedding[:n_agent, :], A=edge_index_comm,
+                                                dead_masking=dead_masking, mini_batch=mini_batch)
                 return node_embedding
             else:
-                node_embedding, A, X, D = self.func_glcn(dead_masking= dead_masking, X = node_embedding_obs[:, :n_agent, :], A = None, mini_batch = mini_batch)
+                # print("전", cat_embedding.shape,cat_embedding[:, :n_agent,:].shape)
+                node_embedding, A, X, D = self.func_glcn(X=cat_embedding, dead_masking=dead_masking, A=None,
+                                                         mini_batch=mini_batch)
+                # writer = SummaryWriter('runs/your_model_experiment')
+
                 return node_embedding, A, X, D
 
 
@@ -436,8 +467,7 @@ class Agent:
                 v_s = v_s.reshape(time_step, num_agent)
                 v_next = self.valuenetwork(node_embedding_next.reshape(num_agent*time_step,-1))
                 v_next = v_next.reshape(time_step, num_agent)
-                if i == 0:e)
-                advantage_lst.reverse()
+                if i == 0:
                     v_s_old_list.append(v_s)
                     v_s_next_old_list.append(v_next)
 
@@ -451,7 +481,8 @@ class Agent:
                 advantage = torch.zeros(num_agent)
                 for delta_t in delta[:, :]:
                     advantage = self.gamma * self.lmbda * advantage + delta_t
-                    advantage_lst.append(advantag
+                    advantage_lst.append(advantage)
+                advantage_lst.reverse()
                 advantage = torch.stack(advantage_lst).to(device)
 
                 for n in range(num_agent):
