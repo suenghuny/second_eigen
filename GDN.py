@@ -283,17 +283,6 @@ class Agent(nn.Module):
 
 
 
-        # self.node_representation_enemy_obs = NodeEmbedding(feature_size=feature_size,
-        #                                                    hidden_size=hidden_size_obs,
-        #                                                    n_representation_obs=n_representation_obs).to(device)  # 수정사항
-        # self.node_representation = NodeEmbedding(feature_size=feature_size - 1,
-        #                                          hidden_size=hidden_size_obs,
-        #                                          n_representation_obs=n_representation_obs).to(device)  # 수정사항
-        # self.action_representation = NodeEmbedding(feature_size=feature_size + 5,
-        #                                            hidden_size=hidden_size_obs,
-        #                                            n_representation_obs=n_representation_obs).to(device)  # 수정사항
-
-        #
 
         self.node_representation = NodeEmbedding(feature_size=self.feature_size,
                                                    hidden_size=self.hidden_size_obs,

@@ -145,7 +145,7 @@ class Agent:
                                                    hidden_size=self.hidden_size_obs,
                                                    n_representation_obs=self.n_representation_obs).to(device)  # 수정사항
 
-        self.node_representation_comm = NodeEmbedding(feature_size =self.feature_size-1,
+        self.node_representation_comm = NodeEmbedding(feature_size =self.feature_size-1+self.feature_size + 5,
                                                       hidden_size  =self.hidden_size_comm,
                                                       n_representation_obs=self.n_representation_comm).to(device)  # 수정사항
 
@@ -161,7 +161,7 @@ class Agent:
                                 graph_embedding_size=self.graph_embedding_comm, link_prediction = False).to(device)
             self.func_glcn2 = GLCN(feature_size=self.graph_embedding_comm,graph_embedding_size=self.graph_embedding_comm, link_prediction=False).to(device)
         else:
-            self.func_glcn = GLCN(feature_size=self.graph_embedding,
+            self.func_glcn = GLCN(feature_size=self.graph_embedding+self.n_representation_comm,
                                   feature_obs_size=self.graph_embedding,
                                 graph_embedding_size=self.graph_embedding_comm, link_prediction = True).to(device)
 
@@ -198,6 +198,7 @@ class Agent:
 
         self.node_features_list = list()
         self.edge_index_enemy_list = list()
+        self.agent_feature_list = list()
         self.avail_action_list = list()
         self.action_list = list()
         self.prob_list = list()
@@ -226,7 +227,7 @@ class Agent:
     # action_size = env1.get_env_info()["n_actions"],
 
     @torch.no_grad()
-    def sample_action(self, node_representation, action_feature, avail_action, num_agent):
+    def sample_action(self, node_representation, action_feature, avail_action, num_agent, epsilon=1 ):
         """
         node_representation 차원 : n_agents X n_representation_comm
         action_feature 차원      : action_size X n_action_feature
@@ -238,23 +239,27 @@ class Agent:
         action = []
         probs = []
         action_embedding = self.action_representation(action_feature)
-
         action_history_list = list()
 
         for n in range(num_agent):
             obs = node_representation[n].expand(action_size, node_representation[n].shape[0])
             obs_cat_action = torch.concat([obs, action_embedding], dim = 1)                           # shape :
             logit = self.network(obs_cat_action).squeeze(1)
-            logit = logit.masked_fill(mask[n, :]==0, -1e8)
+            if np.random.uniform(0, 1)>epsilon:
+                logit = logit.masked_fill(mask[n, :] == 0, -1e8)
+            else:
+                logit = logit.masked_fill(mask[n, :] == 0, -1e8)
+                logit = logit.masked_fill(mask[n, :] == 1, 10)
+
             prob = torch.softmax(logit, dim=-1)             # 에이전트 별 확률
             m = Categorical(prob)
             u = m.sample().item()
-            action_history_list.app[u]
+            action_history_list.append(action_feature[u])
             action.append(u)
             probs.append(prob[u].item())
         factorized_probs = probs[:]
         probs = torch.exp(torch.sum(torch.log(torch.tensor(probs))))
-        return action, probs, factorized_probs
+        return action, probs, factorized_probs, torch.stack(action_history_list)
 
 
     def get_node_representation_gpo(self, node_feature,
@@ -329,6 +334,7 @@ class Agent:
         self.factorize_pi_list.append(transition[9])
         self.dead_masking.append(transition[10])
         self.state_list.append(transition[11])
+        self.agent_feature_list.append(transition[12])
 
         if transition[7] == True:
             batch_data = (
@@ -343,7 +349,8 @@ class Agent:
                 self.edge_index_comm_list,
                 self.factorize_pi_list,
                 self.dead_masking,
-                self.state_list
+                self.state_list,
+                self.agent_feature_list
                 )
 
             self.batch_store.append(batch_data) # batch_store에 저장함
@@ -359,6 +366,7 @@ class Agent:
             self.factorize_pi_list = list()
             self.dead_masking = list()
             self.state_list = list()
+            self.agent_feature_list= list()
 
 
     def make_batch(self, batch_data):
@@ -374,6 +382,7 @@ class Agent:
         factorize_pi_list = batch_data[9]
         dead_masking = batch_data[10]
         state_list = batch_data[11]
+        agent_feature_list = batch_data[12]
         factorize_pi_list = torch.tensor(factorize_pi_list, dtype = torch.float).to(device)
         dead_masking = torch.tensor(dead_masking, dtype=torch.float).to(device)
 
@@ -383,9 +392,11 @@ class Agent:
         avail_action_list = torch.tensor(avail_action_list, dtype=torch.float).to(device)
         action_list = torch.tensor(action_list, dtype=torch.float).to(device)
         state_list = torch.tensor(state_list, dtype=torch.float).to(device)
+        #print(agent_feature_list)
+        agent_feature_list = torch.stack(agent_feature_list).to(device)
 
 
-        return node_features_list, edge_index_enemy_list, avail_action_list,action_list,prob_list,action_feature_list,reward_list,done_list, edge_index_comm_list, factorize_pi_list,dead_masking,state_list
+        return node_features_list, edge_index_enemy_list, avail_action_list,action_list,prob_list,action_feature_list,reward_list,done_list, edge_index_comm_list, factorize_pi_list,dead_masking,state_list,agent_feature_list
 
 
 
@@ -413,7 +424,8 @@ class Agent:
                 action_feature_list,\
                 reward_list,\
                 done_list, \
-                edge_index_comm_list,  factorize_pi_list, dead_masking, state_list = self.make_batch(batch_data)
+                edge_index_comm_list,  factorize_pi_list, dead_masking, state_list,\
+                    agent_feature_list= self.make_batch(batch_data)
                 self.eval_check(eval=False)
                 action_feature = torch.tensor(action_feature_list, dtype= torch.float).to(device)
                 action_list = torch.tensor(action_list, dtype = torch.long).to(device)
@@ -422,13 +434,14 @@ class Agent:
                 reward = torch.tensor(reward_list, dtype= torch.float).to(device)
                 pi_old = torch.tensor(prob_list, dtype= torch.float).to(device)
                 factorize_pi_old =torch.tensor(factorize_pi_list, dtype= torch.float).to(device)
-
+                #agent_feature = torch.tensor(agent_feature_list, dtype= torch.float).to(device)
                 num_nodes = node_features_list.shape[1]
                 num_agent = mask.shape[1]
                 num_action = action_feature.shape[1]
                 time_step = node_features_list.shape[0]
                 if cfg.given_edge == True:
                     node_embedding = self.get_node_representation_gpo(node_features_list,
+                                                                      agent_feature_list,
                                                                       edge_index_enemy_list,
                                                                       edge_index_comm_list,
                                                                       mini_batch=True,
@@ -439,6 +452,7 @@ class Agent:
                 else:
                     node_embedding, A, X, _ = self.get_node_representation_gpo(
                                                                             node_features_list,
+                                                                            agent_feature_list,
                                                                             edge_index_enemy_list,
                                                                             edge_index_comm_list,
                                                                             dead_masking = dead_masking,
@@ -460,7 +474,8 @@ class Agent:
                 node_embedding_next = torch.cat((node_embedding, empty), dim = 0)[:-1, :, :]
 
 
-
+                next_state_list = state_list[1:, :]
+                state_list = state_list[:-1, :]
 
 
                 v_s = self.valuenetwork(node_embedding.reshape(num_agent*time_step,-1))
@@ -472,7 +487,7 @@ class Agent:
                     v_s_next_old_list.append(v_next)
 
                 done =  done.unsqueeze(1).repeat(1, num_agent)
-
+                
                 reward =  reward.unsqueeze(1).repeat(1, num_agent)
                 td_target = reward + self.gamma * v_next * (1-done)
                 delta = td_target - v_s
