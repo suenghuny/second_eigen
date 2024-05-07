@@ -623,7 +623,7 @@ class Agent(nn.Module):
             gamma1 = self.gamma1
             gamma2 = self.gamma2
 
-            X = torch.stack([obs_center(node_features[b], edge_indices_enemy[b], n_agent, device) for b in range(len(node_features))])
+            #X = torch.stack([obs_center(node_features[b], edge_indices_enemy[b], n_agent, device) for b in range(len(node_features))])
             #
             lap_quad, sec_eig_upperbound, L = get_graph_loss(X, A, self.bn)
 

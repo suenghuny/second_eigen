@@ -1072,7 +1072,6 @@ class StarCraft2Env(MultiAgentEnv):
                     if dist < sight_range and al_unit.health > 0:
                         edge_index[0].append(agent_id)
                         edge_index[1].append(al_id)
-
         return edge_index
 
     def get_enemy_visibility_edge_index(self, heterogeneous = False):
