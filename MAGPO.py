@@ -168,7 +168,7 @@ class Agent:
         self.network = PPONetwork(state_size=self.graph_embedding_comm,
                                   state_action_size=self.graph_embedding_comm + self.n_representation_action,
                                   layers=self.layers).to(device)
-        self.valuenetwork = ValueNetwork(state_size=self.graph_embedding_comm,
+        self.valuenetwork = ValueNetwork(state_size=140,
                                   state_action_size=self.graph_embedding_comm + self.n_representation_action,
                                   layers=self.layers).to(device)
 
@@ -227,7 +227,7 @@ class Agent:
     # action_size = env1.get_env_info()["n_actions"],
 
     @torch.no_grad()
-    def sample_action(self, node_representation, action_feature, avail_action, num_agent, epsilon=1 ):
+    def sample_action(self, node_representation, action_feature, avail_action, num_agent, epsilon=0):
         """
         node_representation 차원 : n_agents X n_representation_comm
         action_feature 차원      : action_size X n_action_feature
@@ -414,6 +414,7 @@ class Agent:
             if i == 0:
                 v_s_old_list = list()
                 v_s_next_old_list = list()
+                empty2 = list()
             for l in range(len(self.batch_store)):
                 batch_data = self.batch_store[l]
                 node_features_list, \
@@ -478,22 +479,35 @@ class Agent:
                 state_list = state_list[:-1, :]
 
 
-                v_s = self.valuenetwork(node_embedding.reshape(num_agent*time_step,-1))
-                v_s = v_s.reshape(time_step, num_agent)
-                v_next = self.valuenetwork(node_embedding_next.reshape(num_agent*time_step,-1))
-                v_next = v_next.reshape(time_step, num_agent)
+                # v_s = self.valuenetwork(node_embedding.reshape(num_agent*time_step,-1))
+                # v_s = v_s.reshape(time_step, num_agent)
+                # v_next = self.valuenetwork(node_embedding_next.reshape(num_agent*time_step,-1))
+                # v_next = v_next.reshape(time_step, num_agent)
+                # if i == 0:
+                #     v_s_old_list.append(v_s)
+                #     v_s_next_old_list.append(v_next)
+                # done =  done.unsqueeze(1).repeat(1, num_agent)
+                # reward =  reward.unsqueeze(1).repeat(1, num_agent)
+                # td_target = reward + self.gamma * v_next * (1-done)
+
+                v_s = self.valuenetwork(state_list)
+
+
+                #v_s = v_s.reshape(time_step, num_agent)
+                v_next = self.valuenetwork(next_state_list)
+                #v_next = v_next.reshape(time_step, num_agent)
                 if i == 0:
+                    empty2.append(v_s.mean().item())
                     v_s_old_list.append(v_s)
                     v_s_next_old_list.append(v_next)
-
-                done =  done.unsqueeze(1).repeat(1, num_agent)
-                
-                reward =  reward.unsqueeze(1).repeat(1, num_agent)
+                #done =  done.unsqueeze(1).repeat(1, num_agent)
+                #reward =  reward.unsqueeze(1).repeat(1, num_agent)
                 td_target = reward + self.gamma * v_next * (1-done)
+
                 delta = td_target - v_s
                 delta = delta.cpu().detach().numpy()
                 advantage_lst = []
-                advantage = torch.zeros(num_agent)
+                advantage = torch.zeros(1)
                 for delta_t in delta[:, :]:
                     advantage = self.gamma * self.lmbda * advantage + delta_t
                     advantage_lst.append(advantage)
@@ -525,10 +539,10 @@ class Agent:
                     else:
                         surr+= torch.min(surr1, surr2).mean()/num_agent#+0.01*entropy.mean()/num_agent
 
-                val_surr1 = v_s
-                val_surr2 = torch.clamp(v_s, v_s_old_list[l].detach() - self.eps_clip,v_s_old_list[l].detach() + self.eps_clip)
-                value_loss = torch.max(F.smooth_l1_loss(val_surr1, td_target.detach()), F.smooth_l1_loss(val_surr2, td_target.detach())).mean()
-
+                # val_surr1 = v_s
+                # val_surr2 = torch.clamp(v_s, v_s_old_list[l].detach() - self.eps_clip,v_s_old_list[l].detach() + self.eps_clip)
+                # value_loss = torch.max(F.smooth_l1_loss(val_surr1, td_target.detach()), F.smooth_l1_loss(val_surr2, td_target.detach())).mean()
+                value_loss = F.smooth_l1_loss(v_s, td_target.detach())
                 if cfg.given_edge == True:
                     loss = -surr + 0.5 * value_loss
                 else:
@@ -572,7 +586,7 @@ class Agent:
             # if l == 0:
             #     print(second_eigenvalue)
 
-
+        print(np.mean(empty2))
         self.batch_store = list()
         if cfg.given_edge== True:
             return cum_surr, cum_value_loss, 0, 0, 0  # second_eigenvalue

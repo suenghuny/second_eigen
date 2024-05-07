@@ -205,7 +205,7 @@ def main():
             "ppo_layers": cfg.ppo_layers,
             "lmbda": cfg.lmbda,
             "eps_clip": cfg.eps_clip,
-            "K_epoch": int(os.environ.get("K_epoch", 10)),
+            "K_epoch": int(os.environ.get("K_epoch", 5)),
             "layers": cfg.ppo_layers,
             "feature_size": env.get_env_info()["node_features"],
             "action_size": env.get_env_info()["n_actions"],

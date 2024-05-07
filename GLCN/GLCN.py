@@ -85,6 +85,7 @@ class NodeEmbedding(nn.Module):
         return node_representation
 
 
+
 class GLCN(nn.Module):
     def __init__(self, feature_size, graph_embedding_size, link_prediction = True, feature_obs_size = None, skip_connection = False):
         super(GLCN, self).__init__()
