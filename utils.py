@@ -26,9 +26,12 @@ def obs_center(X, A, num_agent, device):
     X = X[:, -5:-3]
     num_nodes = len(X)
     A = torch.sparse_coo_tensor(A, torch.ones(torch.tensor(A).shape[1]).to(device), (num_nodes, num_nodes)).long().to(device).to_dense()
-    n = A.sum(dim = 1)
-    H = 1/n*A@X
+    A = A.to(torch.float)
+    #print(A.shape, X.shape)
+    H = A@X
+    n = A.sum(dim=1)[:num_agent].unsqueeze(1)
     H = H[:num_agent, :]
+    H = 1/n*H
     return H
 
 def get_graph_loss(X, A, num_nodes, e = False, anneal_episodes_graph_variance = False, min_graph_variance = False):

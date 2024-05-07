@@ -1081,7 +1081,6 @@ class StarCraft2Env(MultiAgentEnv):
             for agent_id in range(self.n_agents):
                 edge_index[0].append(agent_id)
                 edge_index[1].append(agent_id)
-
         else:
             pass
 
