@@ -139,11 +139,9 @@ class GLCN(nn.Module):
             h = torch.einsum("ijk,kl->ijl", torch.abs(h.unsqueeze(1) - h.unsqueeze(0)), self.a_link)
             h = h.squeeze(2)
             if self.sampling == True:
-                A = gumbel_sigmoid(h, tau = float(os.environ.get("gumbel_tau",0.75)),
-                                   hard = True, threshold = 0.5)
+                A = gumbel_sigmoid(h, tau = float(os.environ.get("gumbel_tau",1)), hard = True, threshold = 0.5)
             else:
                 A = F.sigmoid(h)
-
             D = torch.diag(torch.diag(A))
             A = A-D
             if self.sampling ==True:
