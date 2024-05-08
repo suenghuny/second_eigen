@@ -165,13 +165,14 @@ class GLCN(nn.Module):
             Wh_repeated_alternating = Wq.repeat(N, 1)
             all_combinations_matrix = torch.cat([Wh_repeated_in_chunks, Wh_repeated_alternating],dim=1)  # (N*N, 2*out_features)
             e = torch.matmul(all_combinations_matrix, self.a).squeeze(1)
-
-
+            e = e.view(N, N)
+            # print("전",e.shape)
             # Wh1 = Wq
             # Wh1 = torch.matmul(Wh1, self.a[:self.graph_embedding_size, : ])
             # Wh2 = Wv
             # Wh2 = torch.matmul(Wh2, self.a[self.graph_embedding_size:, :])
             # e = Wh1 + Wh2.T
+            # print("후", e.shape)
         else:
             N = Wq.size(0)
 
@@ -180,6 +181,7 @@ class GLCN(nn.Module):
             Wh_repeated_alternating = Wq.repeat(N, 1)
             all_combinations_matrix = torch.cat([Wh_repeated_in_chunks, Wh_repeated_alternating],dim=1)  # (N*N, 2*out_features)
             e = torch.matmul(all_combinations_matrix, self.a).squeeze(1)
+            e = e.view(N, N)
             # Wh1 = Wq
             # Wh1 = torch.matmul(Wh1, self.a[k][:self.graph_embedding_size, : ])
             # Wh2 = Wv
