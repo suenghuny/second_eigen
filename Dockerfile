@@ -12,14 +12,13 @@ RUN pip install git+https://github.com/oxwhirl/smac.git
 
 # sacred 설치
 RUN pip install sacred
-RUN bash install_sc2.sh && pip install vessl && pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 && pip install numpy==1.22.3 && pip install pandas && pip install matplotlib && pip install tensorboard
 
 # 프로젝트 디렉토리 설정
 WORKDIR /app
 
 # 현재 디렉토리의 파일들을 이미지의 /app 디렉토리로 복사
 COPY . /app
-
+RUN pip uninstall numpy && pip install numpy==1.22.3
 # SC2 관련 스크립트 실행 (second_eigen 디렉토리가 이미 포함되어 있어야 함)
 
 
