@@ -57,18 +57,21 @@ def evaluation(env, agent):
         done = False
         episode_reward = 0
         step = 0
+        num_agent = env.get_env_info()["n_agents"]
+        action_history = torch.zeros([num_agent, env.get_env_info()["node_features"] + 5])
         while (not done) and (step < max_episode_len):
             node_feature, edge_index_enemy, edge_index_comm, _, dead_masking = env.get_heterogeneous_graph(heterogeneous=heterogenous)
+            agent_feature = torch.concat([torch.tensor(node_feature)[:num_agent, :-1], action_history.to('cpu')], dim=1)
             avail_action = env.get_avail_actions()
             n_agent = len(avail_action)
             if cfg.given_edge == True:
-                node_embedding = agent.get_node_representation_gpo(node_feature, edge_index_enemy, edge_index_comm, n_agent = n_agent, dead_masking = dead_masking)
+                node_embedding = agent.get_node_representation_gpo(node_feature, agent_feature, edge_index_enemy, edge_index_comm, n_agent = n_agent, dead_masking = dead_masking)
             else:
-                node_embedding, _, _ = agent.get_node_representation_gpo(node_feature, edge_index_enemy, edge_index_comm, n_agent = n_agent, dead_masking = dead_masking)
+                node_embedding, _, _ = agent.get_node_representation_gpo(node_feature, agent_feature, edge_index_enemy, edge_index_comm, n_agent = n_agent, dead_masking = dead_masking)
 
             action_feature = env.get_action_feature()  # 차원 : action_size X n_action_feature
             agent.eval_check(eval=True)
-            action, prob,_ = agent.sample_action(node_embedding, action_feature, avail_action,
+            action, prob,_, action_history = agent.sample_action(node_embedding, action_feature, avail_action,
                                                num_agent=env.get_env_info()["n_agents"])
             reward, done, info = env.step(action)
             episode_reward += reward
@@ -87,28 +90,34 @@ def evaluation(env, agent):
 
 
 
-def train(agent, env, e, t, monitor, params):
+def train(agent, env, e, t, monitor, params, current_epsilon):
     max_episode_limit = env.episode_limit
+    epsilon = params['epsilon']
+    min_epsilon = params['min_epsilon']
+    anneal_steps = params['anneal_step']
+    anneal_epsilon = (epsilon - min_epsilon) / anneal_steps
     env.reset()
     done = False
     episode_reward = 0
     step = 0
     eval = False
     start = time.time()
-
+    num_agent = env.get_env_info()["n_agents"]
+    action_history = torch.zeros([num_agent, env.get_env_info()["node_features"] + 5])
     while (not done) and (step < max_episode_limit):
         node_feature, edge_index_enemy, edge_index_comm, _, dead_masking = env.get_heterogeneous_graph(heterogeneous=heterogenous)
+        agent_feature = torch.concat([torch.tensor(node_feature)[:num_agent, :-1], action_history.to('cpu')], dim=1)
         avail_action = env.get_avail_actions()
         state = env.get_state()
         n_agent = len(avail_action)
         if cfg.given_edge == True:
-            node_embedding = agent.get_node_representation_gpo(node_feature, edge_index_enemy, edge_index_comm, n_agent = n_agent, dead_masking = dead_masking)
+            node_embedding = agent.get_node_representation_gpo(node_feature, agent_feature, edge_index_enemy, edge_index_comm, n_agent = n_agent, dead_masking = dead_masking)
         else:
-            node_embedding, _, _ = agent.get_node_representation_gpo(node_feature, edge_index_enemy, edge_index_comm, n_agent = n_agent, dead_masking = dead_masking)
+            node_embedding, _, _ = agent.get_node_representation_gpo(node_feature, agent_feature, edge_index_enemy, edge_index_comm, n_agent = n_agent, dead_masking = dead_masking)
 
         action_feature = env.get_action_feature()  # 차원 : action_size X n_action_feature
         agent.eval_check(eval=True)
-        action, prob, factorized_probs = agent.sample_action(node_embedding, action_feature, avail_action, num_agent = env.get_env_info()["n_agents"])
+        action, prob, factorized_probs, action_history = agent.sample_action(node_embedding, action_feature, avail_action, num_agent = env.get_env_info()["n_agents"])
         reward, done, info = env.step(action)
         transition = (
                       node_feature,
@@ -122,13 +131,19 @@ def train(agent, env, e, t, monitor, params):
                       edge_index_comm,
                       factorized_probs,
                       dead_masking,
-                      state
+                      state,
+                      agent_feature
                       )
         agent.put_data(transition)
-        print("??")
         episode_reward += reward
         t += 1
         step += 1
+
+        if current_epsilon >= min_epsilon:
+            current_epsilon = current_epsilon - anneal_epsilon
+        else:
+            current_epsilon = min_epsilon
+
         if (t % 5000 == 0) and (t > 0):
             eval = True
     if cfg.vessl_on == True:
@@ -152,11 +167,12 @@ def train(agent, env, e, t, monitor, params):
 
 
 
-    print("{} Total reward in episode {} = {}, time_step : {}, episode_duration : {}".format(env.map_name,
+    print("{} Total reward in episode {} = {}, time_step : {}, episode_duration : {}, current_epsilon : {}".format(env.map_name,
                                                                                                 e,
                                                                                                 np.round(episode_reward, 3),
-                                                                                                t, np.round(time.time()-start, 3)))
-    return episode_reward, t, eval
+                                                                                                t, np.round(time.time()-start, 3),
+                                                                                                                   current_epsilon))
+    return episode_reward, t, eval, current_epsilon
 
 def main():
     if sys.platform == "linux":
@@ -168,25 +184,28 @@ def main():
     env.generate_num_unit_types(num_unit_types, unit_type_ids)
     if cfg.sweep == True:
         params = {
+            "epsilon": float(os.environ.get("epsilon", 1)),
+            "anneal_step": int(os.environ.get("anneal_step", 50000)),
+            "min_epsilon": float(os.environ.get("min_epsilon", 0.05)),
             "hidden_size_obs": int(os.environ.get("hidden_size_obs", 64)),
             "hidden_size_comm": int(os.environ.get("hidden_size_comm", 128)),
             "hidden_size_action": int(os.environ.get("hidden_size_action", 96)),
-            "n_representation_obs": int(os.environ.get("n_representation_obs", 36)),
-            "n_representation_comm": int(os.environ.get("n_representation_comm", 72)),
-            "n_representation_action": int(os.environ.get("n_representation_action", 64)),
-            "graph_embedding": int(os.environ.get("graph_embedding", 56)),
-            "graph_embedding_comm": int(os.environ.get("graph_embedding_comm", 64)),
-            "learning_rate": float(os.environ.get("learning_rate", 3e-4)),
+            "n_representation_obs": int(os.environ.get("n_representation_obs", 56)),
+            "n_representation_comm": int(os.environ.get("n_representation_comm", 56)),
+            "n_representation_action": int(os.environ.get("n_representation_action", 56)),
+            "graph_embedding": int(os.environ.get("graph_embedding", 64)),
+            "graph_embedding_comm": int(os.environ.get("graph_embedding_comm", 128)),
+            "learning_rate": float(os.environ.get("learning_rate", 5e-4)),
             "learning_rate_graph": float(os.environ.get("learning_rate_graph", 0.0005387456623850075)),
-            "gamma1": float(os.environ.get("gamma1", 0.001)),
-            "gamma2": float(os.environ.get("gamma2", 20)),
+            "gamma1": float(os.environ.get("gamma1", 1)),
+            "gamma2": float(os.environ.get("gamma2", 1)),
             "n_data_parallelism": int(os.environ.get("n_data_parallelism", 5)),
 
             "gamma": cfg.gamma,
             "ppo_layers": cfg.ppo_layers,
             "lmbda": cfg.lmbda,
             "eps_clip": cfg.eps_clip,
-            "K_epoch": int(os.environ.get("K_epoch", 10)),
+            "K_epoch": int(os.environ.get("K_epoch", 5)),
             "layers": cfg.ppo_layers,
             "feature_size": env.get_env_info()["node_features"],
             "action_size": env.get_env_info()["n_actions"],
@@ -237,8 +256,9 @@ def main():
     win_rates = []
     eval = False
     monitor = []
+    current_epsilon = params['epsilon']
     for e in range(num_episode):
-        episode_reward, t, eval = train(agent, env, e, t, monitor, params)
+        episode_reward, t, eval, current_epsilon = train(agent, env, e, t, monitor, params, current_epsilon)
         epi_r.append(episode_reward)
 
         if eval == True:

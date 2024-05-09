@@ -436,7 +436,8 @@ class Agent:
                 v_s = v_s.reshape(time_step, num_agent)
                 v_next = self.valuenetwork(node_embedding_next.reshape(num_agent*time_step,-1))
                 v_next = v_next.reshape(time_step, num_agent)
-                if i == 0:
+                if i == 0:e)
+                advantage_lst.reverse()
                     v_s_old_list.append(v_s)
                     v_s_next_old_list.append(v_next)
 
@@ -450,8 +451,7 @@ class Agent:
                 advantage = torch.zeros(num_agent)
                 for delta_t in delta[:, :]:
                     advantage = self.gamma * self.lmbda * advantage + delta_t
-                    advantage_lst.append(advantage)
-                advantage_lst.reverse()
+                    advantage_lst.append(advantag
                 advantage = torch.stack(advantage_lst).to(device)
 
                 for n in range(num_agent):

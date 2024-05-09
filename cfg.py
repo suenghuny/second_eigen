@@ -10,7 +10,7 @@ def get_cfg():
     parser.add_argument("--eps_clip", type=float, default=0.05, help="clipping epsilon")
     parser.add_argument("--K_epoch", type=int, default=2, help="K-epoch")
 
-    parser.add_argument("--ppo_layers", type=str, default='[128,64,48,24,8]', help="layer 구조")
+    parser.add_argument("--ppo_layers", type=str, default='[196,128,64,32,8]', help="layer 구조")
     parser.add_argument("--optimizer", type=str, default='ADAM', help="optimizer")
     parser.add_argument("--scheduler_step", type =int, default=1000, help= "scheduler step")
     parser.add_argument("--scheduler_ratio", type=float, default=0.5, help= "scheduler ratio")

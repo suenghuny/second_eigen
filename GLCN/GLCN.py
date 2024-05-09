@@ -85,6 +85,7 @@ class NodeEmbedding(nn.Module):
         return node_representation
 
 
+
 class GLCN(nn.Module):
     def __init__(self, feature_size, graph_embedding_size, link_prediction = True, feature_obs_size = None, skip_connection = False):
         super(GLCN, self).__init__()
@@ -135,21 +136,17 @@ class GLCN(nn.Module):
         else:
             h = h.detach()
             h = h[:, :self.feature_obs_size]
+
+
             h = torch.einsum("ijk,kl->ijl", torch.abs(h.unsqueeze(1) - h.unsqueeze(0)), self.a_link)
             h = h.squeeze(2)
             if self.sampling == True:
-                A = gumbel_sigmoid(h, tau = float(os.environ.get("gumbel_tau",0.75)),
-                                   hard = True, threshold = 0.5)
+                A = gumbel_sigmoid(h, tau = float(os.environ.get("gumbel_tau",1)),hard = True, threshold = 0.5)
             else:
                 A = F.sigmoid(h)
 
-            D = torch.diag(torch.diag(A))
-            A = A-D.detach()
-            if self.sampling ==True:
-                I = torch.eye(A.size(0)).to(device)
-                A = A+I
-            else:
-                A = A
+            A = A.fill_diagonal_(1)
+
         return A
 
 
@@ -160,17 +157,36 @@ class GLCN(nn.Module):
 
     def _prepare_attentional_mechanism_input(self, Wq, Wv, k = None):
         if k == None:
-            Wh1 = Wq
-            Wh1 = torch.matmul(Wh1, self.a[:self.graph_embedding_size, : ])
-            Wh2 = Wv
-            Wh2 = torch.matmul(Wh2, self.a[self.graph_embedding_size:, :])
-            e = Wh1 + Wh2.T
+
+            N = Wq.size(0)
+
+            # Prepare repeat and transpose tensors for broadcasting
+            Wh_repeated_in_chunks = Wq.repeat_interleave(N, dim=0)
+            Wh_repeated_alternating = Wq.repeat(N, 1)
+            all_combinations_matrix = torch.cat([Wh_repeated_in_chunks, Wh_repeated_alternating],dim=1)  # (N*N, 2*out_features)
+            e = torch.matmul(all_combinations_matrix, self.a).squeeze(1)
+            e = e.view(N, N)
+            # print("전",e.shape)
+            # Wh1 = Wq
+            # Wh1 = torch.matmul(Wh1, self.a[:self.graph_embedding_size, : ])
+            # Wh2 = Wv
+            # Wh2 = torch.matmul(Wh2, self.a[self.graph_embedding_size:, :])
+            # e = Wh1 + Wh2.T
+            # print("후", e.shape)
         else:
-            Wh1 = Wq
-            Wh1 = torch.matmul(Wh1, self.a[k][:self.graph_embedding_size, : ])
-            Wh2 = Wv
-            Wh2 = torch.matmul(Wh2, self.a[k][self.graph_embedding_size:, :])
-            e = Wh1 + Wh2.T
+            N = Wq.size(0)
+
+            # Prepare repeat and transpose tensors for broadcasting
+            Wh_repeated_in_chunks = Wq.repeat_interleave(N, dim=0)
+            Wh_repeated_alternating = Wq.repeat(N, 1)
+            all_combinations_matrix = torch.cat([Wh_repeated_in_chunks, Wh_repeated_alternating],dim=1)  # (N*N, 2*out_features)
+            e = torch.matmul(all_combinations_matrix, self.a[k]).squeeze(1)
+            e = e.view(N, N)
+            # Wh1 = Wq
+            # Wh1 = torch.matmul(Wh1, self.a[k][:self.graph_embedding_size, : ])
+            # Wh2 = Wv
+            # Wh2 = torch.matmul(Wh2, self.a[k][self.graph_embedding_size:, :])
+            # e = Wh1 + Wh2.T
         return F.leaky_relu(e, negative_slope=cfg.negativeslope)
 
 
@@ -184,7 +200,6 @@ class GLCN(nn.Module):
                 Wh = X @ self.Ws
                 #print("여기는 어떄?")
                 a = self._prepare_attentional_mechanism_input(Wh, Wh)
-                #print("끌끌")
                 zero_vec = -9e15 * torch.ones_like(E)
                 a = torch.where(E > 0, a, zero_vec)
                 a = F.softmax(a, dim = 1)
@@ -221,7 +236,7 @@ class GLCN(nn.Module):
                         a = torch.where(A > 0, A * a, zero_vec)
                         #print(a)
                         a = F.softmax(a, dim=1)
-                        H = F.relu(torch.matmul(a, Wh))
+                        H = F.relu(torch.matmul(a, Wh))#
                         if self.skip_connection == True:
                             H = H + X_past
                 else:

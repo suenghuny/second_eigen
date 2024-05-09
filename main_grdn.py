@@ -1,7 +1,7 @@
 import pandas as pd
 from utils import *
 from smac_rev import StarCraft2Env
-from GDN import Agent
+from GRDN import Agent
 from functools import partial
 import numpy as np
 import sys
@@ -67,7 +67,6 @@ def evaluation(env, agent, num_eval):
     t = 0
     win_rates = 0
     num_agent = env.get_env_info()["n_agents"]
-
     for e in range(num_eval):
         env.reset()
         done = False
@@ -223,11 +222,11 @@ def main():
     n_representation_obs = int(os.environ.get("n_representation_obs", 54))#cfg.n_representation_obs  # GAT 해당
     n_representation_action = int(os.environ.get("n_representation_action", 56))  # cfg.n_representation_comm
     n_representation_comm = int(os.environ.get("n_representation_comm", 48))#cfg.n_representation_comm
-    graph_embedding = int(os.environ.get("graph_embedding", 64))
-    graph_embedding_comm = int(os.environ.get("graph_embedding_comm", 96))
+    graph_embedding = int(os.environ.get("graph_embedding", 56))
+    graph_embedding_comm = int(os.environ.get("graph_embedding_comm", 84))
     buffer_size = int(os.environ.get("buffer_size", 100000))       # cfg.buffer_size
     batch_size = int(os.environ.get("batch_size", 24))             # cfg.batch_size
-    gamma = 0.99      ##                                                      # cfg.gamma
+    gamma = 0.99                                                            # cfg.gamma
     learning_rate = float(os.environ.get("learning_rate", 5.0e-4))            # cfg.lr
     learning_rate_graph = learning_rate  # cfg.lr
     num_episode = 500000 #cfg.num_episode
@@ -235,8 +234,8 @@ def main():
     epsilon = float(os.environ.get("epsilon", 1))#cfg.epsilon
     min_epsilon = float(os.environ.get("min_epsilon", 0.05)) #cfg.min_epsilon
     anneal_steps = int(os.environ.get("anneal_steps", 50000))#cfg.anneal_steps
-    gamma1 = float(os.environ.get("gamma1", 1))#
-    gamma2 = float(os.environ.get("gamma2", 0.1))
+    gamma1 = float(os.environ.get("gamma1", 5))
+    gamma2 = float(os.environ.get("gamma2", 5))
 
     anneal_episodes_graph_variance =float(os.environ.get("anneal_episodes_graph_variance",float('inf')))
     min_graph_variance = float(os.environ.get("min_graph_variance", 0.01))
