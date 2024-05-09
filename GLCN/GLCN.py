@@ -236,7 +236,7 @@ class GLCN(nn.Module):
                         a = torch.where(A > 0, A * a, zero_vec)
                         #print(a)
                         a = F.softmax(a, dim=1)
-                        H = F.relu(torch.matmul(a, Wh))
+                        H = F.relu(torch.matmul(a, Wh))#
                         if self.skip_connection == True:
                             H = H + X_past
                 else:
