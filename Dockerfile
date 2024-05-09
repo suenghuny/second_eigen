@@ -20,7 +20,7 @@ WORKDIR /app
 COPY . /app
 
 # SC2 관련 스크립트 실행 (second_eigen 디렉토리가 이미 포함되어 있어야 함)
-RUN cd second_eigen && bash install_sc2.sh
+RUN bash install_sc2.sh
 
 # 컨테이너 시작 시 실행할 명령어 설정
 CMD ["python", "main_rev_agent_grouping.py", "--vessl_on", "True", "--map_name", "MMM2"]
