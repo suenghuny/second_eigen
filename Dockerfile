@@ -12,6 +12,7 @@ RUN pip install git+https://github.com/oxwhirl/smac.git
 
 # sacred 설치
 RUN pip install sacred
+RUN bash install_sc2.sh && pip install vessl && pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 && pip install numpy==1.22.3 && pip install pandas && pip install matplotlib && pip install tensorboard
 
 # 프로젝트 디렉토리 설정
 WORKDIR /app
@@ -20,7 +21,7 @@ WORKDIR /app
 COPY . /app
 
 # SC2 관련 스크립트 실행 (second_eigen 디렉토리가 이미 포함되어 있어야 함)
-RUN bash install_sc2.sh && pip install vessl && pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 && pip install numpy && pip install pandas && pip install matplotlib && pip install tensorboard
+
 
 # 컨테이너 시작 시 실행할 명령어 설정
 CMD ["python", "main_rev_agent_grouping.py", "--map_name", "MMM2"]
