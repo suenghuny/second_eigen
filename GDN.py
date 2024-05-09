@@ -741,7 +741,7 @@ class Agent(nn.Module):
         for target_param, local_param in zip(self.node_representation_tar.parameters(), self.node_representation.parameters()):
             target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
 
-
+###
         for target_param, local_param in zip(self.node_representation_comm_tar.parameters(), self.node_representation_comm.parameters()):
             target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
 
