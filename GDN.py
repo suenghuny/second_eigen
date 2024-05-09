@@ -702,14 +702,12 @@ class Agent(nn.Module):
 
         q_tot = torch.stack(q, dim=1)
         q_tot_tar = torch.stack(q_tar, dim=1)
-        var_ = torch.mean(torch.var(q_tot, dim=1))
-        #print(q_tot.shape)
         q_tot = self.VDN(q_tot)
         q_tot_tar = self.VDN_target(q_tot_tar)
         td_target = rewards*self.num_agent + self.gamma* (1-dones)*q_tot_tar
         loss_func = str(os.environ.get("loss_func", "mse"))
         if cfg.given_edge == True:
-            rl_loss = F.mse_loss(q_tot, td_target.detach())+0.8*var_
+            rl_loss = F.mse_loss(q_tot, td_target.detach())
             loss = rl_loss
         else:
             if loss_func == 'huber':
