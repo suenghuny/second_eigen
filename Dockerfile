@@ -23,4 +23,4 @@ COPY . /app
 RUN bash install_sc2.sh && pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 && pip install numpy && pip install pandas && pip install matplotlib && pip install tensorboard
 
 # 컨테이너 시작 시 실행할 명령어 설정
-CMD ["python", "main_rev_agent_grouping.py", "--vessl_on", "True", "--map_name", "MMM2"]
+CMD ["python", "main_rev_agent_grouping.py", "--map_name", "MMM2"]
