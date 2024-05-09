@@ -18,9 +18,15 @@ WORKDIR /app
 
 # 현재 디렉토리의 파일들을 이미지의 /app 디렉토리로 복사
 COPY . /app
-RUN pip uninstall numpy && pip install numpy==1.22.3
-# SC2 관련 스크립트 실행 (second_eigen 디렉토리가 이미 포함되어 있어야 함)
 
+# 필요한 라이브러리 설치
+RUN bash install_sc2.sh && \
+    pip install vessl && \
+    pip install numpy==1.22.3 && \
+    pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 && \
+    pip install pandas && \
+    pip install matplotlib && \
+    pip install tensorboard
 
 # 컨테이너 시작 시 실행할 명령어 설정
 CMD ["python", "main_rev_agent_grouping.py", "--map_name", "MMM2"]
