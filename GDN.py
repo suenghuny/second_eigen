@@ -516,13 +516,12 @@ class Agent(nn.Module):
                 node_feature = torch.tensor(node_feature, dtype=torch.float, device=device)
                 agent_feature = torch.tensor(agent_feature, dtype=torch.float, device=device)
 
-                num_nodes = node_feature.shape[0]
-                num_agents = agent_feature.shape[0]
-
+                num_nodes = node_feature.shape[1]
+                num_agents = agent_feature.shape[1]
                 node_embedding_obs = torch.stack(
-                    [self.node_representation(node_feature[:, i, :]) for i in range(num_nodes)]).squeeze(1)
+                    [self.node_representation(node_feature[:, i, :]) for i in range(num_nodes)], dim = 1).squeeze(1)
                 node_embedding_comm = torch.stack(
-                    [self.node_representation_comm(agent_feature[:, i, :]) for i in range(num_agents)]).squeeze(1)
+                    [self.node_representation_comm(agent_feature[:, i, :]) for i in range(num_agents)],  dim = 1).squeeze(1)
 
                 node_embedding_obs = self.func_obs(X = node_embedding_obs, A = edge_index_obs, mini_batch = mini_batch)[:, :n_agent,:]
                 cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim=2)
@@ -537,13 +536,13 @@ class Agent(nn.Module):
                     node_feature = torch.tensor(node_feature, dtype=torch.float, device=device)
                     agent_feature = torch.tensor(agent_feature, dtype=torch.float, device=device)
 
-                    num_nodes = node_feature.shape[0]
-                    num_agents = agent_feature.shape[0]
+                    num_nodes = node_feature.shape[1]
+                    num_agents = agent_feature.shape[1]
 
                     node_embedding_obs = torch.stack(
-                        [self.node_representation_tar(node_feature[:, i, :]) for i in range(num_nodes)]).squeeze(1)
+                        [self.node_representation_tar(node_feature[:, i, :]) for i in range(num_nodes)],  dim = 1).squeeze(1)
                     node_embedding_comm = torch.stack(
-                        [self.node_representation_comm_tar(agent_feature[:, i, :]) for i in range(num_agents)]).squeeze(1)
+                        [self.node_representation_comm_tar(agent_feature[:, i, :]) for i in range(num_agents)],  dim = 1).squeeze(1)
 
                     node_embedding_obs = self.func_obs_tar(X = node_embedding_obs, A = edge_index_obs, mini_batch = mini_batch)[:, :n_agent,:]
                     cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim=2)
@@ -571,7 +570,8 @@ class Agent(nn.Module):
 
             action_size = action_features.shape[1]
             obs_n = obs[:, agent_id].unsqueeze(1).expand([self.batch_size, action_size, self.graph_embedding_comm])
-            # print(action_features.shape)
+
+
 
             action_features = action_features.reshape(self.batch_size*action_size, -1)
             action_embedding = self.action_representation(action_features)
@@ -579,8 +579,6 @@ class Agent(nn.Module):
 
             obs_and_action = torch.concat([obs_n, action_embedding], dim=2)
             obs_and_action = obs_and_action.float()
-            ##print(obs_and_action.shape)
-
 
             obs_and_action = obs_and_action.reshape(self.batch_size*action_size,-1)
             q = self.Q(obs_and_action)
@@ -600,6 +598,7 @@ class Agent(nn.Module):
                 action_features_next = torch.tensor(action_features_next).to(device=device, dtype=torch.float32)
                 action_size = action_features_next.shape[1]
                 obs_next = obs_next[:, agent_id].unsqueeze(1).expand([self.batch_size, action_size, self.graph_embedding_comm])
+
 
                 action_features_next = action_features_next.reshape(self.batch_size*action_size, -1)
                 action_embedding_next = self.action_representation(action_features_next)
