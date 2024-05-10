@@ -558,9 +558,9 @@ class Agent(nn.Module):
             ##print(obs_and_action.shape)
 
 
-            obs_and_action = obs_and_action.reshape(self.batch_size*action_size,-1)
+            #obs_and_action = obs_and_action.reshape(self.batch_size*action_size,-1)
             q = self.Q(obs_and_action)
-            q = q.reshape(self.batch_size, action_size, -1)
+            #q = q.reshape(self.batch_size, action_size, -1)
             q = q.squeeze(2)
 
 
@@ -583,10 +583,10 @@ class Agent(nn.Module):
 
                 obs_and_action_next = torch.concat([obs_next, action_embedding_next], dim=2)
                 obs_and_action_next = obs_and_action_next.float()
-                obs_and_action_next = obs_and_action_next.reshape(self.batch_size*action_size,-1)
+                #obs_and_action_next = obs_and_action_next.reshape(self.batch_size*action_size,-1)
 
                 q_tar = self.Q_tar(obs_and_action_next)                        # q.shape :      (batch_size, action_size, 1)
-                q_tar = q_tar.reshape(self.batch_size, action_size, -1)
+                #q_tar = q_tar.reshape(self.batch_size, action_size, -1)
                 q_tar = q_tar.squeeze(2)                                       # q.shape :      (batch_size, action_size)
 
                 avail_actions_next = torch.tensor(avail_actions_next, device = device).bool()
