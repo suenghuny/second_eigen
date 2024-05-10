@@ -174,8 +174,6 @@ class GLCN(nn.Module):
             e = Wh1 + Wh2.T
         return F.leaky_relu(e, negative_slope=cfg.negativeslope)
 
-
-
     def forward(self, A, X, dead_masking = False, mini_batch = False):
         if self.link_prediction == False:
             if mini_batch == False:
@@ -189,7 +187,7 @@ class GLCN(nn.Module):
                 zero_vec = -9e15 * torch.ones_like(E)
                 a = torch.where(E > 0, a, zero_vec)
                 a = F.softmax(a, dim = 1)
-                H = F.elu(torch.matmul(a, Wh))
+                H = F.relu(torch.matmul(a, Wh))
                 #print("뒹벳",H) #
             else:
                 batch_size = X.shape[0]
