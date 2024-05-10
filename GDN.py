@@ -549,9 +549,9 @@ class Agent(nn.Module):
             obs_n = obs[:, agent_id].unsqueeze(1).expand([self.batch_size, action_size, self.graph_embedding_comm])
             # print(action_features.shape)
 
-            action_features = action_features.reshape(self.batch_size*action_size, -1)
+            #action_features = action_features.reshape(self.batch_size*action_size, -1)
             action_embedding = self.action_representation(action_features)
-            action_embedding = action_embedding.reshape(self.batch_size, action_size, -1)
+            #action_embedding = action_embedding.reshape(self.batch_size, action_size, -1)
 
             obs_and_action = torch.concat([obs_n, action_embedding], dim=2)
             obs_and_action = obs_and_action.float()
@@ -577,9 +577,9 @@ class Agent(nn.Module):
                 action_size = action_features_next.shape[1]
                 obs_next = obs_next[:, agent_id].unsqueeze(1).expand([self.batch_size, action_size, self.graph_embedding_comm])
 
-                action_features_next = action_features_next.reshape(self.batch_size*action_size, -1)
+                #action_features_next = action_features_next.reshape(self.batch_size*action_size, -1)
                 action_embedding_next = self.action_representation_tar(action_features_next)
-                action_embedding_next = action_embedding_next.reshape(self.batch_size, action_size, -1)
+                #action_embedding_next = action_embedding_next.reshape(self.batch_size, action_size, -1)
 
                 obs_and_action_next = torch.concat([obs_next, action_embedding_next], dim=2)
                 obs_and_action_next = obs_and_action_next.float()
