@@ -138,19 +138,12 @@ class GLCN(nn.Module):
             h = h[:, :self.feature_obs_size]
             h = torch.einsum("ijk,kl->ijl", torch.abs(h.unsqueeze(1) - h.unsqueeze(0)), self.a_link)
             h = h.squeeze(2)
-            if self.sampling == True:
-                A = gumbel_sigmoid(h, tau = float(os.environ.get("gumbel_tau",0.75)),
-                                   hard = True, threshold = 0.5)
-            else:
-                A = F.sigmoid(h)
-
+            A = gumbel_sigmoid(h, tau = float(os.environ.get("gumbel_tau",1)), hard = True, threshold = 0.5)
             D = torch.diag(torch.diag(A))
-            A = A-D
-            if self.sampling ==True:
-                I = torch.eye(A.size(0)).to(device)
-                A = A+I
-            else:
-                A = A
+            A = A-D.detach()
+            I = torch.eye(A.size(0)).to(device)
+            A = A+I
+
         return A
 
 
@@ -181,14 +174,11 @@ class GLCN(nn.Module):
                 num_nodes = X.shape[0]
                 E = torch.sparse_coo_tensor(E, torch.ones(torch.tensor(E).shape[1]).to(device), (num_nodes, num_nodes)).long().to(device).to_dense()
                 Wh = X @ self.Ws
-                #print("여기는 어떄?")
                 a = self._prepare_attentional_mechanism_input(Wh, Wh)
-                #print("끌끌")
                 zero_vec = -9e15 * torch.ones_like(E)
                 a = torch.where(E > 0, a, zero_vec)
                 a = F.softmax(a, dim = 1)
-                H = F.relu(torch.matmul(a, Wh))
-                #print("뒹벳",H) #
+                H = F.elu(torch.matmul(a, Wh))
             else:
                 batch_size = X.shape[0]
                 num_nodes = X.shape[1]
@@ -202,7 +192,7 @@ class GLCN(nn.Module):
                     zero_vec = -9e15 * torch.ones_like(E)
                     a = torch.where(E > 0, a, zero_vec)
                     a = F.softmax(a, dim = 1)
-                    H = F.relu(torch.matmul(a, Wh))
+                    H = F.elu(torch.matmul(a, Wh))
                     H_placeholder.append(H)
                 H = torch.stack(H_placeholder)
 
@@ -213,16 +203,14 @@ class GLCN(nn.Module):
                 if self.sampling == True:
                     H = X
                     for k in range(self.k_hop):
-                        X_past = H
                         Wh = H @ self.Ws[k]
                         a = self._prepare_attentional_mechanism_input(Wh, Wh, k=k)
                         zero_vec = -9e15 * torch.ones_like(A)
                         a = torch.where(A > 0, A * a, zero_vec)
                         #print(a)
                         a = F.softmax(a, dim=1)
-                        H = F.relu(torch.matmul(a, Wh))
-                        if self.skip_connection == True:
-                            H = H + X_past
+                        H = F.elu(torch.matmul(a, Wh))
+
                 else:
                     I = torch.eye(A.size(0)).to(device)
                     A_hat = A + I
@@ -236,7 +224,7 @@ class GLCN(nn.Module):
                         else:
                             support = torch.mm(H, self.W[k])
                             output = torch.mm(torch.mm(D_hat_inv_sqrt, A_hat), D_hat_inv_sqrt)
-                        H = F.relu(torch.mm(output, support))
+                        H = F.elu(torch.mm(output, support))
 
                 return H, A, X
             else:
@@ -256,20 +244,12 @@ class GLCN(nn.Module):
                         for k in range(self.k_hop):
                             if k != 0:
                                 A = A.detach()
-                            X_past = H
                             Wh = H @ self.Ws[k]
                             a = self._prepare_attentional_mechanism_input(Wh, Wh, k = k)
-
-
                             zero_vec = -9e15 * torch.ones_like(A)
                             a = torch.where(A > 0, A*a, zero_vec)
-                            #a = A * a
-                            #print(a)
-                            #a = torch.where(a < -1e8, zero_vec, a)
                             a = F.softmax(a, dim=1)
-                            H = F.relu(torch.matmul(a, Wh))
-                            if self.skip_connection == True:
-                                H = H + X_past
+                            H = F.elu(torch.matmul(a, Wh))
                             if k+1 == self.k_hop:
                                 H_placeholder.append(H)
                     else:
@@ -281,16 +261,15 @@ class GLCN(nn.Module):
                             if k == 0:
                                 support = torch.mm(X[b], self.W[k])
                                 output = torch.mm(torch.mm(D_hat_inv_sqrt, A_hat), D_hat_inv_sqrt)
-                                H = F.relu(torch.mm(output, support))
+                                H = F.elu(torch.mm(output, support))
                             else:
                                 support = torch.mm(H, self.W[k])
                                 output = torch.mm(torch.mm(D_hat_inv_sqrt, A_hat), D_hat_inv_sqrt)
-                                H = F.relu(torch.mm(output.detach(), support))
+                                H = F.elu(torch.mm(output.detach(), support))
                             if k+1 == self.k_hop:
                                 H_placeholder.append(H)
                 H = torch.stack(H_placeholder)
                 A = torch.stack(A_placeholder)
-
                 D = torch.stack(D_placeholder)
 
                 return H, A, X, D

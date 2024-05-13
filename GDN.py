@@ -754,9 +754,6 @@ class Agent(nn.Module):
         torch.nn.utils.clip_grad_norm_(self.graph_params, grad_clip)
         if graph_learning_stop == True:
             torch.nn.utils.clip_grad_norm_(self.non_q_params, 0)
-        # for name, param in self.func_glcn.named_parameters():
-        #     if param.requires_grad:
-        #         print(f'{name}: gradient norm is {param.grad.norm()}')
 
         self.optimizer.step()
         self.optimizer.zero_grad()
