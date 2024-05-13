@@ -140,7 +140,7 @@ class GLCN(nn.Module):
             h = h.squeeze(2)
             A = gumbel_sigmoid(h, tau = float(os.environ.get("gumbel_tau",1)), hard = True, threshold = 0.5)
             D = torch.diag(torch.diag(A))
-            A = A-D.detach()
+            A = A-D
             I = torch.eye(A.size(0)).to(device)
             A = A+I
 
