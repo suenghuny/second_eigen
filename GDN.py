@@ -529,20 +529,8 @@ class Agent(nn.Module):
                 with torch.no_grad():
                     node_feature = torch.tensor(node_feature, dtype=torch.float, device=device)
                     agent_feature = torch.tensor(agent_feature, dtype=torch.float, device=device)
-
-                    batch_size = node_feature.shape[0]
-                    num_nodes = node_feature.shape[1]
-                    num_agents = agent_feature.shape[1]
-
-                    node_feature = node_feature.reshape(batch_size * num_nodes, -1)
-                    agent_feature = agent_feature.reshape(batch_size * num_agents, -1)
-                    node_embedding_obs = self.node_representation(node_feature)
-                    node_embedding_comm = self.node_representation_comm(agent_feature)
-                    node_embedding_obs = node_embedding_obs.reshape(batch_size, num_nodes, -1)
-                    node_embedding_comm = node_embedding_comm.reshape(batch_size, num_agents, -1)
-
-
-
+                    node_embedding_obs  = self.node_representation_tar(node_feature)
+                    node_embedding_comm = self.node_representation_comm_tar(agent_feature)
                     node_embedding_obs = self.func_obs_tar(X = node_embedding_obs, A = edge_index_obs, mini_batch = mini_batch)[:, :n_agent,:]
                     cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim=2)
                     if cfg.given_edge == True:
@@ -754,6 +742,9 @@ class Agent(nn.Module):
         torch.nn.utils.clip_grad_norm_(self.graph_params, grad_clip)
         if graph_learning_stop == True:
             torch.nn.utils.clip_grad_norm_(self.non_q_params, 0)
+        # for name, param in self.func_glcn.named_parameters():
+        #     if param.requires_grad:
+        #         print(f'{name}: gradient norm is {param.grad.norm()}')
 
         self.optimizer.step()
         self.optimizer.zero_grad()
