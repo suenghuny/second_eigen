@@ -134,11 +134,12 @@ class GLCN(nn.Module):
             A = F.softmax(h, dim = 1)
             A = (A+A.T)/2
         else:
-            h = h.detach()
+            h = h
             h = h[:, :self.feature_obs_size]
             h = torch.einsum("ijk,kl->ijl", torch.abs(h.unsqueeze(1) - h.unsqueeze(0)), self.a_link)
             h = h.squeeze(2)
-            A = gumbel_sigmoid(h, tau = float(os.environ.get("gumbel_tau",1)), hard = True, threshold = 0.5)
+            A = gumbel_sigmoid(h, tau =
+            float(os.environ.get("gumbel_tau",1)), hard = True, threshold = 0.5)
             D = torch.diag(torch.diag(A))
             A = A-D
             I = torch.eye(A.size(0)).to(device)
