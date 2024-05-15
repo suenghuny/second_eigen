@@ -497,6 +497,7 @@ class Agent(nn.Module):
                     return node_embedding
 
                 else:
+
                     node_embedding, A, X = self.func_glcn(X = cat_embedding, dead_masking= dead_masking, A = None)
                     # 오류 수정
                     return node_embedding, A, X
