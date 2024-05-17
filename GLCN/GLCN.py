@@ -258,7 +258,7 @@ class GLCN(nn.Module):
                         H = X[b, :, :]
                         for k in range(self.k_hop):
                             if k != 0:
-                                A = A #.detach()
+                                A = A.detach()
                             Wh = H @ self.Ws[k]
                             a = self._prepare_attentional_mechanism_input(Wh, Wh, k = k)
                             zero_vec = -9e15 * torch.ones_like(A)
