@@ -154,22 +154,24 @@ class GLCN(nn.Module):
 
 
     def _prepare_attentional_mechanism_input(self, Wq, Wv, k = None):
+
+
         if k == None:
 
-            N = Wq.size(0)
-
-            # Prepare repeat and transpose tensors for broadcasting
-            Wh_repeated_in_chunks = Wq.repeat_interleave(N, dim=0)
-            Wh_repeated_alternating = Wq.repeat(N, 1)
-            all_combinations_matrix = torch.cat([Wh_repeated_in_chunks, Wh_repeated_alternating],dim=1)  # (N*N, 2*out_features)
-            e = torch.matmul(all_combinations_matrix, self.a).squeeze(1)
-            e = e.view(N, N)
+            # N = Wq.size(0)
+            #
+            # # Prepare repeat and transpose tensors for broadcasting
+            # Wh_repeated_in_chunks = Wq.repeat_interleave(N, dim=0)
+            # Wh_repeated_alternating = Wq.repeat(N, 1)
+            # all_combinations_matrix = torch.cat([Wh_repeated_in_chunks, Wh_repeated_alternating],dim=1)  # (N*N, 2*out_features)
+            # e = torch.matmul(all_combinations_matrix, self.a).squeeze(1)
+            # e = e.view(N, N)
             # print("전",e.shape)
-            # Wh1 = Wq
-            # Wh1 = torch.matmul(Wh1, self.a[:self.graph_embedding_size, : ])
-            # Wh2 = Wv
-            # Wh2 = torch.matmul(Wh2, self.a[self.graph_embedding_size:, :])
-            # e = Wh1 + Wh2.T
+            Wh1 = Wq
+            Wh1 = torch.matmul(Wh1, self.a[:self.graph_embedding_size, : ])
+            Wh2 = Wv
+            Wh2 = torch.matmul(Wh2, self.a[self.graph_embedding_size:, :])
+            e = Wh1 + Wh2.T
             # print("후", e.shape)
         else:
             N = Wq.size(0)
@@ -198,6 +200,9 @@ class GLCN(nn.Module):
                 batch_size = X.shape[0]
                 num_nodes = X.shape[1]
                 H_placeholder = list()
+
+                Hs = torch.zeros([batch_size, num_nodes, self.graph_embedding_size]).to(device)
+
                 for b in range(batch_size):
                     X_t = X[b,:,:]
                     E = torch.tensor(A[b]).long().to(device)
@@ -208,7 +213,9 @@ class GLCN(nn.Module):
                     a = torch.where(E > 0, a, zero_vec)
                     a = F.softmax(a, dim = 1)
                     H = F.elu(torch.matmul(a, Wh))
+                    Hs[b, :, :] = H
                     H_placeholder.append(H)
+
                 H = torch.stack(H_placeholder)
 
             return H
@@ -222,10 +229,8 @@ class GLCN(nn.Module):
                         a = self._prepare_attentional_mechanism_input(Wh, Wh, k=k)
                         zero_vec = -9e15 * torch.ones_like(A)
                         a = torch.where(A > 0, A * a, zero_vec)
-                        #print(a)
                         a = F.softmax(a, dim=1)
                         H = F.elu(torch.matmul(a, Wh))
-
                 else:
                     I = torch.eye(A.size(0)).to(device)
                     A_hat = A + I
@@ -240,20 +245,24 @@ class GLCN(nn.Module):
                             support = torch.mm(H, self.W[k])
                             output = torch.mm(torch.mm(D_hat_inv_sqrt, A_hat), D_hat_inv_sqrt)
                         H = F.elu(torch.mm(output, support))
-
                 return H, A, X
             else:
                 num_nodes = X.shape[1]
                 batch_size = X.shape[0]
                 I = torch.eye(num_nodes).to(device)
-                H_placeholder = list()
-                A_placeholder = list()
-                D_placeholder = list()
+
+                Hs = torch.zeros([batch_size, num_nodes, self.graph_embedding_size]).to(device)
+                As = torch.zeros([batch_size, num_nodes, num_nodes]).to(device)
+                #
+                # H_placeholder = list()
+                # A_placeholder = list()
+                # D_placeholder = list()
                 for b in range(batch_size):
                     A = self._link_prediction(X[b], dead_masking[b], mini_batch = mini_batch)
-                    A_placeholder.append(A)
+                    As[b, :, :] = A
+                    #A_placeholder.append(A)
                     D = torch.diag(torch.diag(A))
-                    D_placeholder.append(D)
+                    #D_placeholder.append(D)
                     if self.sampling == True:
                         H = X[b, :, :]
                         for k in range(self.k_hop):
@@ -266,7 +275,8 @@ class GLCN(nn.Module):
                             a = F.softmax(a, dim=1)
                             H = F.elu(torch.matmul(a, Wh))
                             if k+1 == self.k_hop:
-                                H_placeholder.append(H)
+                                Hs[b,:, :] = H
+                                #H_placeholder.append(H)
                     else:
                         A_hat = A + I
                         D_hat_diag = torch.sum(A_hat, dim=1)
@@ -281,10 +291,10 @@ class GLCN(nn.Module):
                                 support = torch.mm(H, self.W[k])
                                 output = torch.mm(torch.mm(D_hat_inv_sqrt, A_hat), D_hat_inv_sqrt)
                                 H = F.elu(torch.mm(output.detach(), support))
-                            if k+1 == self.k_hop:
-                                H_placeholder.append(H)
-                H = torch.stack(H_placeholder)
-                A = torch.stack(A_placeholder)
-                D = torch.stack(D_placeholder)
+                            if k+1 == self.k_hop: pass
+                                #H_placeholder.append(H)
+                # H = torch.stack(H_placeholder)
+                # A = torch.stack(A_placeholder)
+                # D = torch.stack(D_placeholder)
 
-                return H, A, X, D
+                return Hs, As, X, 1

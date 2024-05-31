@@ -370,7 +370,7 @@ class Agent(nn.Module):
                                list(self.func_glcn2.parameters()) + \
                                list(self.action_representation.parameters())
         else:
-            self.eval_params = [p for n, p in self.func_glcn.named_parameters() if n != 'a_link'] + \
+            self.eval_params = list(self.func_glcn.parameters()) + \
                        list(self.VDN.parameters()) + \
                        list(self.Q.parameters()) + \
                        list(self.node_representation.parameters()) + \
@@ -378,19 +378,12 @@ class Agent(nn.Module):
                        list(self.func_obs.parameters()) + \
                        list(self.action_representation.parameters())
 
-            self.graph_params = [p for n, p in self.func_glcn.named_parameters() if n == 'a_link']
+            #self.graph_params = [p for n, p in self.func_glcn.named_parameters() if n == 'a_link']
 
         param_groups = [
             {'params': self.eval_params},
-            {'params': self.graph_params, 'lr': learning_rate_graph}
         ]
 
-        self.non_q_params = list(self.func_glcn.parameters())  + \
-                           list(self.VDN.parameters()) + \
-                           list(self.node_representation.parameters()) + \
-                           list(self.node_representation_comm.parameters()) + \
-                           list(self.func_obs.parameters()) + \
-                           list(self.action_representation.parameters())
 
         self.optimizer = optim.RMSprop(param_groups, lr=learning_rate)
 
@@ -740,9 +733,10 @@ class Agent(nn.Module):
         loss.backward()
         grad_clip = float(os.environ.get("grad_clip", 10))
         torch.nn.utils.clip_grad_norm_(self.eval_params, grad_clip)
-        torch.nn.utils.clip_grad_norm_(self.graph_params, grad_clip)
-        if graph_learning_stop == True:
-            torch.nn.utils.clip_grad_norm_(self.non_q_params, 0)
+
+        # torch.nn.utils.clip_grad_norm_(self.graph_params, grad_clip)
+        # if graph_learning_stop == True:
+        #     torch.nn.utils.clip_grad_norm_(self.non_q_params, 0)
         # for name, param in self.func_glcn.named_parameters():
         #     if param.requires_grad:
         #         print(f'{name}: gradient norm is {param.grad.norm()}')
