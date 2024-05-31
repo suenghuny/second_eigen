@@ -127,23 +127,16 @@ class GLCN(nn.Module):
 
 
     def _link_prediction(self, h, dead_masking, mini_batch = False):
-        if cfg.softmax == True:
-            h = h.detach()
-            h = torch.einsum("ijk,kl->ijl", torch.abs(h.unsqueeze(1) - h.unsqueeze(0)), self.a_link)
-            h = h.squeeze(2)
-            A = F.softmax(h, dim = 1)
-            A = (A+A.T)/2
-        else:
-            h = h
-            h = h[:, :self.feature_obs_size]
-            h = torch.einsum("ijk,kl->ijl", torch.abs(h.unsqueeze(1) - h.unsqueeze(0)), self.a_link)
-            h = h.squeeze(2)
-            A = gumbel_sigmoid(h, tau =
-            float(os.environ.get("gumbel_tau",1)), hard = True, threshold = 0.5)
-            D = torch.diag(torch.diag(A))
-            A = A-D
-            I = torch.eye(A.size(0)).to(device)
-            A = A+I
+
+        h = h.detach()
+        h = h[:, :self.feature_obs_size]
+        h = torch.einsum("ijk,kl->ijl", torch.abs(h.unsqueeze(1) - h.unsqueeze(0)), self.a_link)
+        h = h.squeeze(2)
+        A = gumbel_sigmoid(h, tau = float(os.environ.get("gumbel_tau",1)), hard = True, threshold = 0.5)
+        D = torch.diag(torch.diag(A))
+        A = A-D
+        I = torch.eye(A.size(0)).to(device)
+        A = A+I
 
         return A
 
@@ -154,8 +147,6 @@ class GLCN(nn.Module):
 
 
     def _prepare_attentional_mechanism_input(self, Wq, Wv, k = None):
-
-
         if k == None:
 
             # N = Wq.size(0)
@@ -199,8 +190,6 @@ class GLCN(nn.Module):
             else:
                 batch_size = X.shape[0]
                 num_nodes = X.shape[1]
-                H_placeholder = list()
-
                 Hs = torch.zeros([batch_size, num_nodes, self.graph_embedding_size]).to(device)
 
                 for b in range(batch_size):
@@ -208,93 +197,46 @@ class GLCN(nn.Module):
                     E = torch.tensor(A[b]).long().to(device)
                     E = torch.sparse_coo_tensor(E, torch.ones(torch.tensor(E).shape[1]).to(device), (num_nodes, num_nodes)).long().to(device).to_dense()
                     Wh = X_t @ self.Ws
-                    a = self._prepare_attentional_mechanism_input(Wh,Wh)
+                    a = self._prepare_attentional_mechanism_input(Wh, Wh)
                     zero_vec = -9e15 * torch.ones_like(E)
                     a = torch.where(E > 0, a, zero_vec)
                     a = F.softmax(a, dim = 1)
                     H = F.elu(torch.matmul(a, Wh))
                     Hs[b, :, :] = H
-                    H_placeholder.append(H)
-
-                H = torch.stack(H_placeholder)
+                H = Hs
 
             return H
         else:
             if mini_batch == False:
                 A = self._link_prediction(X, dead_masking, mini_batch = mini_batch)
-                if self.sampling == True:
-                    H = X
-                    for k in range(self.k_hop):
-                        Wh = H @ self.Ws[k]
-                        a = self._prepare_attentional_mechanism_input(Wh, Wh, k=k)
-                        zero_vec = -9e15 * torch.ones_like(A)
-                        a = torch.where(A > 0, A * a, zero_vec)
-                        a = F.softmax(a, dim=1)
-                        H = F.elu(torch.matmul(a, Wh))
-                else:
-                    I = torch.eye(A.size(0)).to(device)
-                    A_hat = A + I
-                    D_hat_diag = torch.sum(A_hat, dim=0)
-                    D_hat_inv_sqrt_diag = torch.pow(D_hat_diag, -0.5)
-                    D_hat_inv_sqrt = torch.diag(D_hat_inv_sqrt_diag)
-                    for k in range(self.k_hop):
-                        if k == 0:
-                            support = torch.mm(X, self.W[k])
-                            output = torch.mm(torch.mm(D_hat_inv_sqrt, A_hat), D_hat_inv_sqrt)
-                        else:
-                            support = torch.mm(H, self.W[k])
-                            output = torch.mm(torch.mm(D_hat_inv_sqrt, A_hat), D_hat_inv_sqrt)
-                        H = F.elu(torch.mm(output, support))
+                H = X
+                for k in range(self.k_hop):
+                    Wh = H @ self.Ws[k]
+                    a = self._prepare_attentional_mechanism_input(Wh, Wh, k=k)
+                    zero_vec = -9e15 * torch.ones_like(A)
+                    a = torch.where(A > 0, A * a, zero_vec)
+                    a = F.softmax(a, dim=1)
+                    H = F.elu(torch.matmul(a, Wh))
                 return H, A, X
             else:
                 num_nodes = X.shape[1]
                 batch_size = X.shape[0]
-                I = torch.eye(num_nodes).to(device)
-
                 Hs = torch.zeros([batch_size, num_nodes, self.graph_embedding_size]).to(device)
                 As = torch.zeros([batch_size, num_nodes, num_nodes]).to(device)
-                #
-                # H_placeholder = list()
-                # A_placeholder = list()
-                # D_placeholder = list()
                 for b in range(batch_size):
                     A = self._link_prediction(X[b], dead_masking[b], mini_batch = mini_batch)
                     As[b, :, :] = A
-                    #A_placeholder.append(A)
-                    D = torch.diag(torch.diag(A))
-                    #D_placeholder.append(D)
-                    if self.sampling == True:
-                        H = X[b, :, :]
-                        for k in range(self.k_hop):
-                            if k != 0:
-                                A = A.detach()
-                            Wh = H @ self.Ws[k]
-                            a = self._prepare_attentional_mechanism_input(Wh, Wh, k = k)
-                            zero_vec = -9e15 * torch.ones_like(A)
-                            a = torch.where(A > 0, A*a, zero_vec)
-                            a = F.softmax(a, dim=1)
-                            H = F.elu(torch.matmul(a, Wh))
-                            if k+1 == self.k_hop:
-                                Hs[b,:, :] = H
-                                #H_placeholder.append(H)
-                    else:
-                        A_hat = A + I
-                        D_hat_diag = torch.sum(A_hat, dim=1)
-                        D_hat_inv_sqrt_diag = torch.pow(D_hat_diag, -0.5)
-                        D_hat_inv_sqrt = torch.diag(D_hat_inv_sqrt_diag)
-                        for k in range(self.k_hop):
-                            if k == 0:
-                                support = torch.mm(X[b], self.W[k])
-                                output = torch.mm(torch.mm(D_hat_inv_sqrt, A_hat), D_hat_inv_sqrt)
-                                H = F.elu(torch.mm(output, support))
-                            else:
-                                support = torch.mm(H, self.W[k])
-                                output = torch.mm(torch.mm(D_hat_inv_sqrt, A_hat), D_hat_inv_sqrt)
-                                H = F.elu(torch.mm(output.detach(), support))
-                            if k+1 == self.k_hop: pass
-                                #H_placeholder.append(H)
-                # H = torch.stack(H_placeholder)
-                # A = torch.stack(A_placeholder)
-                # D = torch.stack(D_placeholder)
+                    H = X[b, :, :]
+                    for k in range(self.k_hop):
+                        if k != 0:
+                            A = A.detach()
+                        Wh = H @ self.Ws[k]
+                        a = self._prepare_attentional_mechanism_input(Wh, Wh, k = k)
+                        zero_vec = -9e15 * torch.ones_like(A)
+                        a = torch.where(A > 0, A*a, zero_vec)
+                        a = F.softmax(a, dim=1)
+                        H = F.elu(torch.matmul(a, Wh))
+                        if k+1 == self.k_hop:
+                            Hs[b,:, :] = H
 
                 return Hs, As, X, 1

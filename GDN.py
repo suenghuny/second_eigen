@@ -616,7 +616,10 @@ class Agent(nn.Module):
         action = []
         action_embedding = self.action_representation(action_feature)
         action_space = [i for i in range(action_size)]
-        selected_action_feature_list = list()
+        #selected_action_feature_list = list()
+        action_feature_size = action_feature.shape[1]
+        selected_action_feature = torch.zeros(self.num_agent, action_feature_size).to(device)
+
         for n in range(self.num_agent):
             obs = node_representation[n].expand(action_size, node_representation[n].shape[0])         # 차원 : action_size X n_representation_comm
             obs_cat_action = torch.concat([obs, action_embedding], dim = 1)    # 차원 : action_size X
@@ -628,12 +631,15 @@ class Agent(nn.Module):
             if np.random.uniform(0, 1) >= epsilon:
                 u = greedy_u
                 action.append(u.item())
-                selected_action_feature_list.append(action_feature[u.item()])
+                selected_action_feature[n, :] = action_feature[u.item()]
+                #
+                # selected_action_feature_list.append(action_feature[u.item()])
             else:
                 u = np.random.choice(action_space, p=mask_n / np.sum(mask_n))
                 action.append(u)
-                selected_action_feature_list.append(action_feature[u])
-        return action, torch.stack(selected_action_feature_list)
+                selected_action_feature[n, :] = action_feature[u.item()]
+        #print(torch.stack(selected_action_feature_list).shape)
+        return action, selected_action_feature
 
 
     def eval(self, train = False):
@@ -697,22 +703,44 @@ class Agent(nn.Module):
 
         dones = torch.tensor(dones, device = device, dtype = torch.float)
         rewards = torch.tensor(rewards, device = device, dtype = torch.float)
-        q = [self.cal_Q(obs=obs,
+
+        q_tot = torch.zeros([self.batch_size, self.num_agent]).to(device)
+        q_tot_tar = torch.zeros([self.batch_size, self.num_agent]).to(device)
+
+        for agent_id in range(self.num_agent):
+            q_tot[:, agent_id] = self.cal_Q(obs=obs,
                          actions=actions,
                          action_features=action_features,
                          avail_actions_next=None,
                          agent_id=agent_id,
-                         target=False) for agent_id in range(self.num_agent)]
-
-        q_tar = [self.cal_Q(obs=obs_next,
+                         target=False)
+            q_tot_tar[:, agent_id] = self.cal_Q(obs=obs_next,
                              actions=None,
                              action_features=action_features_next,
                              avail_actions_next=avail_actions_next,
                              agent_id=agent_id,
-                             target=True) for agent_id in range(self.num_agent)]
+                             target=True)
+#####
+        # q = [self.cal_Q(obs=obs,
+        #                  actions=actions,
+        #                  action_features=action_features,
+        #                  avail_actions_next=None,
+        #                  agent_id=agent_id,
+        #                  target=False) for agent_id in range(self.num_agent)]
+        #
+        # q_tar = [self.cal_Q(obs=obs_next,
+        #                      actions=None,
+        #                      action_features=action_features_next,
+        #                      avail_actions_next=avail_actions_next,
+        #                      agent_id=agent_id,
+        #                      target=True) for agent_id in range(self.num_agent)]
 
-        q_tot = torch.stack(q, dim=1)
-        q_tot_tar = torch.stack(q_tar, dim=1)
+        # q_tot = torch.stack(q, dim=1)
+        # q_tot_tar = torch.stack(q_tar, dim=1)
+        #
+        #
+        # print(q_tot.shape, q_tot_tar.shape)
+
         var_ = torch.mean(torch.var(q_tot, dim=1))
         #print(q_tot.shape)
         q_tot = self.VDN(q_tot)
