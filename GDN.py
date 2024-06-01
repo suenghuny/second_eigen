@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.optim.lr_scheduler import StepLR
 import random
 import pickle
 from collections import deque
@@ -386,6 +387,7 @@ class Agent(nn.Module):
 
 
         self.optimizer = optim.RMSprop(param_groups, lr=learning_rate)
+        self.scheduler = StepLR(optimizer=self.optimizer, step_size=cfg.scheduler_step, gamma=cfg.scheduler_ratio)
 
 
     def save_model(self, file_dir, e, t, win_rate):
@@ -761,6 +763,9 @@ class Agent(nn.Module):
         loss.backward()
         grad_clip = float(os.environ.get("grad_clip", 10))
         torch.nn.utils.clip_grad_norm_(self.eval_params, grad_clip)
+
+        if self.optimizer.param_groups[0]['lr'] >= cfg.lr_min:
+            self.scheduler.step()
 
         # torch.nn.utils.clip_grad_norm_(self.graph_params, grad_clip)
         # if graph_learning_stop == True:

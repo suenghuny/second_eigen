@@ -10,6 +10,12 @@ def get_cfg():
     parser.add_argument("--eps_clip", type=float, default=0.05, help="clipping epsilon")
     parser.add_argument("--K_epoch", type=int, default=2, help="K-epoch")
 
+    parser.add_argument("--lr", type=float, default=5e-4, help="learning rate")
+    parser.add_argument("--lr_min", type=float, default=1e-5, help="lr_min")
+    parser.add_argument("--scheduler_step", type=int, default=1000, help="scheduler step")
+    parser.add_argument("--scheduler_ratio", type=float, default=0.995, help="scheduler ratio")
+
+
     parser.add_argument("--ppo_layers", type=str, default='[196,128,64,32,8]', help="layer 구조")
     parser.add_argument("--optimizer", type=str, default='ADAM', help="optimizer")
     parser.add_argument("--scheduler_step", type =int, default=1000, help= "scheduler step")
@@ -24,7 +30,7 @@ def get_cfg():
     parser.add_argument("--n_representation_comm", type=int, default=28, help="")
     parser.add_argument("--n_representation_action", type=int, default=24, help="")
     parser.add_argument("--graph_embedding", type=int, default=32, help="")
-    parser.add_argument("--lr", type=float, default=1.e-4, help="learning rate")
+
     parser.add_argument("--lr_graph", type=float, default=1.e-3, help="learning rate")
     parser.add_argument("--n_data_parallelism", type=int, default=10, help="")
     parser.add_argument("--grad_clip", type=float, default=5, help="")

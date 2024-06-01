@@ -61,30 +61,6 @@ def weight_init_xavier_uniform(submodule):
         submodule.weight.data.fill_(1.0)
         submodule.bias.data.zero_()
 
-class NodeEmbedding(nn.Module):
-    def __init__(self, feature_size, n_representation_obs, layers = [20, 30 ,40]):
-        super(NodeEmbedding, self).__init__()
-        self.feature_size = feature_size
-        self.linears = OrderedDict()
-        last_layer = self.feature_size
-        for i in range(len(layers)):
-            layer = layers[i]
-            if i <= len(layers)-2:
-                self.linears['linear{}'.format(i)]= nn.Linear(last_layer, layer)
-                self.linears['batchnorm{}'.format(i)] = nn.BatchNorm1d(layer)
-                self.linears['activation{}'.format(i)] = nn.ELU()
-                last_layer = layer
-            else:
-                self.linears['linear{}'.format(i)] = nn.Linear(last_layer, n_representation_obs)
-        self.node_embedding = nn.Sequential(self.linears)
-        self.node_embedding.apply(weight_init_xavier_uniform)
-
-
-    def forward(self, node_feature, missile=False):
-        node_representation = self.node_embedding(node_feature)
-        return node_representation
-
-
 
 class GLCN(nn.Module):
     def __init__(self, feature_size, graph_embedding_size, link_prediction = True, feature_obs_size = None, skip_connection = False):
