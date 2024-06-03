@@ -20,12 +20,21 @@ from copy import deepcopy
 
 
 class VDN(nn.Module):
+    def __init__(self):
+        super(VDN, self).__init__()
 
+    def forward(self, q_local):
+
+        return torch.sum(q_local, dim = 1)
+
+
+class MixingNet(nn.Module):
     def __init__(self):
         super(VDN, self).__init__()
 
     def forward(self, q_local):
         return torch.sum(q_local, dim = 1)
+
 
 class Network(nn.Module):
     def __init__(self, obs_and_action_size, hidden_size_q):
@@ -268,8 +277,6 @@ class Agent(nn.Module):
 
         self.VDN = VDN().to(device)
         self.VDN_target = VDN().to(device)
-
-
         self.VDN_target.load_state_dict(self.VDN.state_dict())
         self.buffer_size = buffer_size
         self.batch_size = batch_size
@@ -744,7 +751,9 @@ class Agent(nn.Module):
         # print(q_tot.shape, q_tot_tar.shape)
 
         var_ = torch.mean(torch.var(q_tot, dim=1))
-        #print(q_tot.shape)
+        print(q_tot.shape, )
+
+
         q_tot = self.VDN(q_tot)
         q_tot_tar = self.VDN_target(q_tot_tar)
         td_target = rewards*self.num_agent + self.gamma* (1-dones)*q_tot_tar
@@ -753,11 +762,8 @@ class Agent(nn.Module):
             rl_loss = F.mse_loss(q_tot, td_target.detach())+0.8*var_
             loss = rl_loss
         else:
-            if loss_func == 'huber':
-                rl_loss = F.huber_loss(q_tot, td_target.detach())
-            else:
-                rl_loss = F.mse_loss(q_tot, td_target.detach())
-            graph_loss = gamma1 * lap_quad - gamma2 * gamma1 * sec_eig_upperbound
+            rl_loss = F.mse_loss(q_tot, td_target.detach())
+            graph_loss = gamma1 * lap_quad - gamma2 * gamma1 * sec_eig_upperbound+ float(os.environ.get("var_reg", 0.01))*var_
             loss = graph_loss+rl_loss
 
         loss.backward()

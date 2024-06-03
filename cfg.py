@@ -9,16 +9,12 @@ def get_cfg():
     parser.add_argument("--gamma", type=float, default=0.99, help="GAE lmbda")
     parser.add_argument("--eps_clip", type=float, default=0.05, help="clipping epsilon")
     parser.add_argument("--K_epoch", type=int, default=2, help="K-epoch")
-
     parser.add_argument("--lr", type=float, default=5e-4, help="learning rate")
     parser.add_argument("--lr_min", type=float, default=1e-5, help="lr_min")
     parser.add_argument("--scheduler_step", type=int, default=1000, help="scheduler step")
     parser.add_argument("--scheduler_ratio", type=float, default=0.995, help="scheduler ratio")
-
-
     parser.add_argument("--ppo_layers", type=str, default='[196,128,64,32,8]', help="layer 구조")
     parser.add_argument("--optimizer", type=str, default='ADAM', help="optimizer")
-
     parser.add_argument("--negativeslope", type=float, default=0.1, help="leaky relu negative slope")
     parser.add_argument("--map_name", type=str, default='6h_vs_8z', help="map name")
     parser.add_argument("--load", type=str, default='episode97000.pt', help="map name")
