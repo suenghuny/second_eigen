@@ -19,13 +19,35 @@ from GAT.layers import device
 from copy import deepcopy
 
 
+# class VDN(nn.Module):
+#     def __init__(self):
+#         super(VDN, self).__init__()
+#
+#     def forward(self, q_local):
+#
+#         return torch.sum(q_local, dim = 1)
+
 class VDN(nn.Module):
-    def __init__(self):
+    def __init__(self, feature_size):
         super(VDN, self).__init__()
+        self.feature_size = feature_size
+        self.fcn1 = nn.Linear(feature_size,96)
+        self.fcn2 = nn.Linear(96, 48)
+        self.fcn3 = nn.Linear(48, 18)
+        self.fcn4 = nn.Linear(18, 1)
 
-    def forward(self, q_local):
+    def forward(self, q_local, agent_embedding):
+        batch_size = agent_embedding.shape[0]
+        num_agent = agent_embedding.shape[1]
+        agent_embedding = agent_embedding.reshape(batch_size*num_agent,-1)
+        x = F.elu(self.fcn1(agent_embedding))
+        x = F.elu(self.fcn2(x))
+        x = F.elu(self.fcn3(x))
+        x = self.fcn4(x)
+        x = x.reshape(batch_size, num_agent)
+        a = F.softmax(x, dim = 1)
+        return torch.sum(q_local*a, dim = 1)*num_agent
 
-        return torch.sum(q_local, dim = 1)
 
 
 class MixingNet(nn.Module):
@@ -275,8 +297,8 @@ class Agent(nn.Module):
 
         self.max_norm = 10
 
-        self.VDN = VDN().to(device)
-        self.VDN_target = VDN().to(device)
+        self.VDN = VDN(self.graph_embedding_comm + self.n_representation_action).to(device)
+        self.VDN_target = VDN(self.graph_embedding_comm + self.n_representation_action).to(device)
         self.VDN_target.load_state_dict(self.VDN.state_dict())
         self.buffer_size = buffer_size
         self.batch_size = batch_size
@@ -497,9 +519,7 @@ class Agent(nn.Module):
                 if cfg.given_edge == True:
                     node_embedding = self.func_glcn(X=cat_embedding[:n_agent,:], dead_masking= dead_masking, A=edge_index_comm)
                     return node_embedding
-
                 else:
-
                     node_embedding, A, X = self.func_glcn(X = cat_embedding, dead_masking= dead_masking, A = None)
                     # 오류 수정
                     return node_embedding, A, X
@@ -569,9 +589,6 @@ class Agent(nn.Module):
 
             obs_and_action = torch.concat([obs_n, action_embedding], dim=2)
             obs_and_action = obs_and_action.float()
-            ##print(obs_and_action.shape)
-
-
             obs_and_action = obs_and_action.reshape(self.batch_size*action_size,-1)
             q = self.Q(obs_and_action)
             q = q.reshape(self.batch_size, action_size, -1)
@@ -580,9 +597,14 @@ class Agent(nn.Module):
 
             # q.shape :      (batch_size, action_size)
             actions = torch.tensor(actions, device = device).long()
-            act_n = actions[:, agent_id].unsqueeze(1)                    # action.shape : (batch_size, 1)
-            q = torch.gather(q, 1, act_n).squeeze(1)                     # q.shape :      (batch_size, 1)
-            return q
+            act_n = actions[:, agent_id].unsqueeze(1)
+            q = torch.gather(q, 1, act_n).squeeze(1)
+
+            obs_and_action = obs_and_action.reshape(self.batch_size, action_size,-1)
+            obs_and_action_shape = obs_and_action.shape[-1]
+            act_n_expanded = act_n.unsqueeze(-1).expand(-1, -1, obs_and_action_shape)
+            selected_obs_and_action = obs_and_action.gather(1, act_n_expanded).squeeze(1)
+            return q, selected_obs_and_action
         else:
             with torch.no_grad():
                 obs_next = obs
@@ -606,9 +628,16 @@ class Agent(nn.Module):
                 avail_actions_next = torch.tensor(avail_actions_next, device = device).bool()
                 mask = avail_actions_next[:, agent_id]
                 q_tar = q_tar.masked_fill(mask == 0, float('-inf'))
-
                 q_tar_max = torch.max(q_tar, dim = 1)[0]
-                return q_tar_max
+
+                act_n = torch.argmax(q_tar, dim=1).unsqueeze(1)
+                #print(q_tar.shape, act_n.shape)
+                obs_and_action = obs_and_action_next.reshape(self.batch_size, action_size, -1)
+                obs_and_action_shape = obs_and_action.shape[-1]
+                act_n_expanded = act_n.unsqueeze(-1).expand(-1, -1, obs_and_action_shape)
+                selected_obs_and_action_next = obs_and_action.gather(1, act_n_expanded).squeeze(1)
+
+                return q_tar_max, selected_obs_and_action_next
 
 
 
@@ -664,6 +693,9 @@ class Agent(nn.Module):
         else:
             self.func_glcn.train()
             self.VDN.train()
+
+
+
             self.Q.train()
             self.Q_tar.eval()
             self.node_representation.train()
@@ -716,45 +748,33 @@ class Agent(nn.Module):
         q_tot = torch.zeros([self.batch_size, self.num_agent]).to(device)
         q_tot_tar = torch.zeros([self.batch_size, self.num_agent]).to(device)
 
+
         for agent_id in range(self.num_agent):
-            q_tot[:, agent_id] = self.cal_Q(obs=obs,
+
+
+            q_tot[:, agent_id], selected_obs_and_action = self.cal_Q(obs=obs,
                          actions=actions,
                          action_features=action_features,
                          avail_actions_next=None,
                          agent_id=agent_id,
                          target=False)
-            q_tot_tar[:, agent_id] = self.cal_Q(obs=obs_next,
+            if agent_id == 0:
+                selected_obs_and_action_memory = torch.zeros([self.batch_size, self.num_agent, selected_obs_and_action.shape[-1]]).to(device)
+                selected_obs_and_action_next_memory = torch.zeros(
+                [self.batch_size, self.num_agent, selected_obs_and_action.shape[-1]]).to(device)
+
+            q_tot_tar[:, agent_id], selected_obs_and_action_next = self.cal_Q(obs=obs_next,
                              actions=None,
                              action_features=action_features_next,
                              avail_actions_next=avail_actions_next,
                              agent_id=agent_id,
                              target=True)
-#####
-        # q = [self.cal_Q(obs=obs,
-        #                  actions=actions,
-        #                  action_features=action_features,
-        #                  avail_actions_next=None,
-        #                  agent_id=agent_id,
-        #                  target=False) for agent_id in range(self.num_agent)]
-        #
-        # q_tar = [self.cal_Q(obs=obs_next,
-        #                      actions=None,
-        #                      action_features=action_features_next,
-        #                      avail_actions_next=avail_actions_next,
-        #                      agent_id=agent_id,
-        #                      target=True) for agent_id in range(self.num_agent)]
-
-        # q_tot = torch.stack(q, dim=1)
-        # q_tot_tar = torch.stack(q_tar, dim=1)
-        #
-        #
-        # print(q_tot.shape, q_tot_tar.shape)
+            selected_obs_and_action_memory[:, agent_id, :] = selected_obs_and_action
+            selected_obs_and_action_next_memory[:, agent_id, :] = selected_obs_and_action_next
 
         var_ = torch.mean(torch.var(q_tot, dim=1))
-
-
-        q_tot = self.VDN(q_tot)
-        q_tot_tar = self.VDN_target(q_tot_tar)
+        q_tot = self.VDN(q_tot, selected_obs_and_action_memory)
+        q_tot_tar = self.VDN_target(q_tot_tar, selected_obs_and_action_next_memory)
         td_target = rewards*self.num_agent + self.gamma* (1-dones)*q_tot_tar
         loss_func = str(os.environ.get("loss_func", "mse"))
         if cfg.given_edge == True:
@@ -765,25 +785,15 @@ class Agent(nn.Module):
             graph_loss = gamma1 * lap_quad - gamma2 * gamma1 * sec_eig_upperbound+ \
                          float(os.environ.get("var_reg", 0.01))*var_
             loss = graph_loss+rl_loss
-
         loss.backward()
         grad_clip = float(os.environ.get("grad_clip", 10))
         torch.nn.utils.clip_grad_norm_(self.eval_params, grad_clip)
 
-        if self.optimizer.param_groups[0]['lr'] >= cfg.lr_min:
-            self.scheduler.step()
-
-        # torch.nn.utils.clip_grad_norm_(self.graph_params, grad_clip)
-        # if graph_learning_stop == True:
-        #     torch.nn.utils.clip_grad_norm_(self.non_q_params, 0)
-        # for name, param in self.func_glcn.named_parameters():
-        #     if param.requires_grad:
-        #         print(f'{name}: gradient norm is {param.grad.norm()}')
-
         self.optimizer.step()
         self.optimizer.zero_grad()
 
-
+        if self.optimizer.param_groups[0]['lr'] >= cfg.lr_min:
+            self.scheduler.step()
 
         tau = 1e-4
         for target_param, local_param in zip(self.Q_tar.parameters(), self.Q.parameters()):

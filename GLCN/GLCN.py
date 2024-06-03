@@ -15,17 +15,6 @@ device =torch.device(cfg.cuda if torch.cuda.is_available() else "cpu")
 print(device)
 
 
-def sample_adjacency_matrix(weight_matrix):
-    # weight_matrix는 n x n 텐서이며, 각 원소는 연결 확률을 나타냅니다.
-    # 0과 1 사이의 uniform random matrix를 생성합니다.
-    random_matrix = torch.rand(weight_matrix.size()).to(device)
-
-    # weight_matrix의 확률 값을 사용하여 0 또는 1을 샘플링합니다.
-    # weight_matrix의 각 원소가 해당 위치에서의 연결 확률을 나타내므로,
-    # random_matrix가 그 확률 이하인 경우에는 연결(1)로, 그렇지 않으면 비연결(0)으로 판단합니다.
-    adjacency_matrix = (random_matrix < weight_matrix).int()
-    #print(adjacency_matrix)
-    return adjacency_matrix
 
 
 def gumbel_sigmoid(logits: Tensor, tau: float = 1, hard: bool = False, threshold: float = 0.5) -> Tensor:
@@ -102,7 +91,7 @@ class GLCN(nn.Module):
 
 
 
-    def _link_prediction(self, h, dead_masking, mini_batch = False):
+    def _link_prediction(self, h):
 
         h = h.detach()
         h = h[:, :self.feature_obs_size]
@@ -156,7 +145,7 @@ class GLCN(nn.Module):
             # e = e.view(N, N)
         return F.leaky_relu(e, negative_slope=cfg.negativeslope)
 
-    def forward(self, A, X, dead_masking = False, mini_batch = False):
+    def forward(self, A, X, mini_batch = False, dead_masking = None):
         if self.link_prediction == False:
             if mini_batch == False:
                 E = A.to(device)
@@ -189,7 +178,7 @@ class GLCN(nn.Module):
             return H
         else:
             if mini_batch == False:
-                A = self._link_prediction(X, dead_masking, mini_batch = mini_batch)
+                A = self._link_prediction(X)
                 H = X
                 for k in range(self.k_hop):
                     Wh = H @ self.Ws[k]
@@ -205,7 +194,7 @@ class GLCN(nn.Module):
                 Hs = torch.zeros([batch_size, num_nodes, self.graph_embedding_size]).to(device)
                 As = torch.zeros([batch_size, num_nodes, num_nodes]).to(device)
                 for b in range(batch_size):
-                    A = self._link_prediction(X[b], dead_masking[b], mini_batch = mini_batch)
+                    A = self._link_prediction(X[b])
                     As[b, :, :] = A
                     H = X[b, :, :]
                     for k in range(self.k_hop):
@@ -219,5 +208,4 @@ class GLCN(nn.Module):
                         H = F.elu(torch.matmul(a, Wh))
                         if k+1 == self.k_hop:
                             Hs[b,:, :] = H
-
                 return Hs, As, X, 1
