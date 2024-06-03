@@ -763,7 +763,8 @@ class Agent(nn.Module):
             loss = rl_loss
         else:
             rl_loss = F.mse_loss(q_tot, td_target.detach())
-            graph_loss = gamma1 * lap_quad - gamma2 * gamma1 * sec_eig_upperbound+ float(os.environ.get("var_reg", 0.01))*var_
+            graph_loss = gamma1 * lap_quad - gamma2 * gamma1 * sec_eig_upperbound+ \
+                         float(os.environ.get("var_reg", 0.01))*var_
             loss = graph_loss+rl_loss
 
         loss.backward()
