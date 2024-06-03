@@ -751,7 +751,6 @@ class Agent(nn.Module):
         # print(q_tot.shape, q_tot_tar.shape)
 
         var_ = torch.mean(torch.var(q_tot, dim=1))
-        print(q_tot.shape, )
 
 
         q_tot = self.VDN(q_tot)
