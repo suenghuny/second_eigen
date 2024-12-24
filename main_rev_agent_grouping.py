@@ -166,6 +166,7 @@ def train(agent, env, e, t, train_start, epsilon, min_epsilon, anneal_epsilon, i
         action_feature = env.get_action_feature()  # 차원 : action_size X n_action_feature
         action, action_history = agent.sample_action(node_representation, action_feature, avail_action, epsilon)
 
+
         reward, done, info = env.step(action)
         agent.buffer.memory(node_feature, action, action_feature, edge_index_enemy, edge_index_ally, reward,
                             done, avail_action, dead_masking, agent_feature.tolist())

@@ -57,7 +57,10 @@ class PPONetwork(nn.Module):
             pi = self.output_pi(x)
             return x
 
-
+class ObservationNetwork(nn.Module):
+    def __init__(self, feature_size):
+        super(ObservationNetwork, self).__init__()
+        self.obs_n = nn.Parameter(torch.FloatTensor(feature_size))
 
 class ValueNetwork(nn.Module):
     def __init__(self, state_size, state_action_size, layers=[8, 12]):
@@ -92,21 +95,6 @@ class Agent:
     def __init__(self,
                  params
                  ):
-
-        # action_size,
-        # feature_size,
-        # hidden_size_obs,
-        # hidden_size_action,
-        # n_representation_obs,
-        # n_representation_action,
-        # graph_embedding,
-        # learning_rate = cfg.lr,
-        # gamma = cfg.gamma,
-        # lmbda = cfg.lmbda,
-        # eps_clip = cfg.eps_clip,
-        # K_epoch = cfg.K_epoch,
-        # layers = list(eval(cfg.ppo_layers))
-
         self.action_size = params["action_size"]
         self.feature_size = params["feature_size"]
         self.hidden_size_obs = params["hidden_size_obs"]
@@ -141,6 +129,13 @@ class Agent:
         NodeEmbedding 수정해야 함
         
         """
+
+        self.obs_net = ObservationNetwork(self.n_representation_obs).to(device)
+
+        self.node_representation_agent = NodeEmbedding(feature_size=2*self.feature_size+4,
+                                                 hidden_size=self.hidden_size_obs,
+                                                 n_representation_obs=self.n_representation_obs).to(device)  # 수정사항
+
         self.node_representation =   NodeEmbedding(feature_size=self.feature_size,
                                                    hidden_size=self.hidden_size_obs,
                                                    n_representation_obs=self.n_representation_obs).to(device)  # 수정사항
@@ -161,9 +156,12 @@ class Agent:
                                 graph_embedding_size=self.graph_embedding_comm, link_prediction = False).to(device)
             self.func_glcn2 = GLCN(feature_size=self.graph_embedding_comm,graph_embedding_size=self.graph_embedding_comm, link_prediction=False).to(device)
         else:
-            self.func_glcn = GLCN(feature_size=self.graph_embedding,
-                                  feature_obs_size=self.graph_embedding,
+            self.func_glcn = GLCN(feature_size=self.n_representation_obs+self.graph_embedding,
+                                  feature_obs_size=self.n_representation_obs+self.graph_embedding,
                                 graph_embedding_size=self.graph_embedding_comm, link_prediction = True).to(device)
+            self.func_glcn2 = GLCN(feature_size=self.graph_embedding_comm,
+                                  feature_obs_size=self.n_representation_obs + self.graph_embedding,
+                                  graph_embedding_size=self.graph_embedding_comm, link_prediction = False).to(device)
 
         self.network = PPONetwork(state_size=self.graph_embedding_comm,
                                   state_action_size=self.graph_embedding_comm + self.n_representation_action,
@@ -184,11 +182,14 @@ class Agent:
         else:
             self.eval_params = list(self.network.parameters()) + \
                                list(self.valuenetwork.parameters()) + \
+                               list(self.obs_net.parameters())+ \
+                               list(self.node_representation_agent.parameters()) + \
                                list(self.node_representation.parameters()) + \
                                list(self.node_representation_comm.parameters()) + \
                                list(self.action_representation.parameters()) + \
                                list(self.func_obs.parameters()) + \
-                               list(self.func_glcn.parameters())
+                               list(self.func_glcn.parameters()) + \
+                               list(self.func_glcn2.parameters())
 
         if cfg.optimizer == 'ADAM':
             self.optimizer1 = optim.Adam(self.eval_params, lr=self.learning_rate)  #
@@ -208,6 +209,8 @@ class Agent:
         self.factorize_pi_list = list()
         self.dead_masking = list()
         self.state_list = list()
+        self.summarized_state_list = list()
+        self.agent_feature_list = list()
         self.batch_store = []
 
 
@@ -237,6 +240,7 @@ class Agent:
         action_size = action_feature.shape[0]
         action = []
         probs = []
+        selected_action_feature = []
         action_embedding = self.action_representation(action_feature)
         for n in range(num_agent):
             obs = node_representation[n].expand(action_size, node_representation[n].shape[0])
@@ -248,40 +252,66 @@ class Agent:
             u = m.sample().item()
             action.append(u)
             probs.append(prob[u].item())
+            selected_action_feature.append(action_feature[n,:])
+
         factorized_probs = probs[:]
         probs = torch.exp(torch.sum(torch.log(torch.tensor(probs))))
-        return action, probs, factorized_probs
+        selected_action_feature = torch.stack(selected_action_feature)
+        return action, probs, factorized_probs, selected_action_feature
 
 
-    def get_node_representation_gpo(self, node_feature, edge_index_obs,edge_index_comm, n_agent, dead_masking, mini_batch = False):
+    def get_node_representation_gpo(self, node_feature, agent_feature, edge_index_obs,edge_index_comm, n_agent, dead_masking, mini_batch = False):
         if mini_batch == False:
             with torch.no_grad():
                 node_feature = torch.tensor(node_feature, dtype=torch.float,device=device)
-                node_embedding_obs = self.node_representation(node_feature)
-                #node_embedding_comm = self.node_representation_comm(node_feature[:,:-1])
+                agent_feature = torch.tensor(agent_feature, dtype=torch.float, device=device)
+                node_embedding_obs = self.node_representation(node_feature[n_agent:, ])
+                node_embedding_agent = self.node_representation_agent(agent_feature)
+
+                enemy_embedding = node_embedding_obs
+                obs_embedding = self.obs_net.obs_n.repeat(n_agent, 1)
+                embedding = torch.concat([obs_embedding, enemy_embedding], axis=0)
+
+
+
+
                 edge_index_obs = torch.tensor(edge_index_obs, dtype=torch.long, device=device)
                 edge_index_comm = torch.tensor(edge_index_comm, dtype=torch.long, device=device)
-                node_embedding_obs = self.func_obs(X = node_embedding_obs, A = edge_index_obs)
-                #cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim = 1)
+                node_embedding_obs = self.func_obs(X = embedding, A = edge_index_obs)
+                agent_embedding = torch.concat([node_embedding_obs[:n_agent, :], node_embedding_agent], axis=1)
+                #print(agent_embedding.shape)
+
+
                 if cfg.given_edge == True:
                     node_embedding = self.func_glcn(X=node_embedding_obs[:n_agent, :], A=edge_index_comm)
-                    node_embedding = self.func_glcn2(X=node_embedding, A=edge_index_comm)
+                    #node_embedding = self.func_glcn2(X=node_embedding, A=edge_index_comm)
                     return node_embedding
                 else:
-                    node_embedding, A, X = self.func_glcn(dead_masking= dead_masking, X = node_embedding_obs[:n_agent, :], A = None)
+                    node_embedding, A, X = self.func_glcn(dead_masking= dead_masking, X = agent_embedding, A = None)
+                    #node_embedding = self.func_glcn2(dead_masking=dead_masking, X=node_embedding, A=A)
                     return node_embedding, A, X
         else:
             node_feature = torch.tensor(node_feature, dtype=torch.float, device=device)
-            node_embedding_obs = self.node_representation(node_feature)
-            # node_embedding_comm = self.node_representation_comm(node_feature[:, :, :-1])
-            node_embedding_obs = self.func_obs(X = node_embedding_obs, A = edge_index_obs, mini_batch = mini_batch)
-            # cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim=2)
+            agent_feature = torch.tensor(agent_feature, dtype=torch.float, device=device)
+            node_embedding_agent = self.node_representation_agent(agent_feature)
+            node_embedding_obs = self.node_representation(node_feature[:, n_agent:, ])
+            time_length = node_embedding_obs.shape[0]
+            obs_embedding = self.obs_net.obs_n.repeat(time_length, n_agent, 1)
+            enemy_embedding = node_embedding_obs
+            embedding = torch.concat([obs_embedding, enemy_embedding], axis = 1)
+
+
+
+            node_embedding_obs = self.func_obs(X = embedding, A = edge_index_obs, mini_batch = mini_batch)
+            agent_embedding = torch.concat([node_embedding_obs[:, :n_agent, :], node_embedding_agent], axis=2)
+
             if cfg.given_edge == True:
                 node_embedding = self.func_glcn(X=node_embedding_obs[:, :n_agent, :], A=edge_index_comm, mini_batch=mini_batch)
                 node_embedding = self.func_glcn2(X=node_embedding , A=edge_index_comm, mini_batch=mini_batch)
                 return node_embedding
             else:
-                node_embedding, A, X, D = self.func_glcn(dead_masking= dead_masking, X = node_embedding_obs[:, :n_agent, :], A = None, mini_batch = mini_batch)
+                node_embedding, A, X, D = self.func_glcn(dead_masking= dead_masking, X = agent_embedding, A = None, mini_batch = mini_batch)
+                #node_embedding = self.func_glcn2(dead_masking=dead_masking, X=node_embedding, A=A)
                 return node_embedding, A, X, D
 
 
@@ -298,6 +328,9 @@ class Agent:
         self.factorize_pi_list.append(transition[9])
         self.dead_masking.append(transition[10])
         self.state_list.append(transition[11])
+        self.summarized_state_list.append(transition[12])
+        self.agent_feature_list.append(transition[13])
+
 
         if transition[7] == True:
             batch_data = (
@@ -312,7 +345,9 @@ class Agent:
                 self.edge_index_comm_list,
                 self.factorize_pi_list,
                 self.dead_masking,
-                self.state_list
+                self.state_list,
+                self.summarized_state_list,
+                self.agent_feature_list
                 )
 
             self.batch_store.append(batch_data) # batch_store에 저장함
@@ -328,6 +363,8 @@ class Agent:
             self.factorize_pi_list = list()
             self.dead_masking = list()
             self.state_list = list()
+            self.summarized_state_list = list()
+            self.agent_feature_list = list()
 
 
     def make_batch(self, batch_data):
@@ -343,6 +380,11 @@ class Agent:
         factorize_pi_list = batch_data[9]
         dead_masking = batch_data[10]
         state_list = batch_data[11]
+
+        summarized_state_list = batch_data[12]
+        agent_feature_list = batch_data[13]
+
+
         factorize_pi_list = torch.tensor(factorize_pi_list, dtype = torch.float).to(device)
         dead_masking = torch.tensor(dead_masking, dtype=torch.float).to(device)
 
@@ -352,9 +394,14 @@ class Agent:
         avail_action_list = torch.tensor(avail_action_list, dtype=torch.float).to(device)
         action_list = torch.tensor(action_list, dtype=torch.float).to(device)
         state_list = torch.tensor(state_list, dtype=torch.float).to(device)
+        summarized_state_list = torch.tensor(summarized_state_list, dtype=torch.float).to(device)
+        agent_feature_list = torch.stack(agent_feature_list).to(device)
 
 
-        return node_features_list, edge_index_enemy_list, avail_action_list,action_list,prob_list,action_feature_list,reward_list,done_list, edge_index_comm_list, factorize_pi_list,dead_masking,state_list
+        return node_features_list, edge_index_enemy_list, avail_action_list,\
+               action_list,prob_list,action_feature_list,reward_list,done_list, \
+               edge_index_comm_list, factorize_pi_list,dead_masking,state_list, \
+               summarized_state_list, agent_feature_list
 
 
 
@@ -382,7 +429,8 @@ class Agent:
                 action_feature_list,\
                 reward_list,\
                 done_list, \
-                edge_index_comm_list,  factorize_pi_list, dead_masking, state_list = self.make_batch(batch_data)
+                edge_index_comm_list,  factorize_pi_list, dead_masking, state_list, \
+                summarized_state_list, agent_feature_list= self.make_batch(batch_data)
                 self.eval_check(eval=False)
                 action_feature = torch.tensor(action_feature_list, dtype= torch.float).to(device)
                 action_list = torch.tensor(action_list, dtype = torch.long).to(device)
@@ -392,12 +440,16 @@ class Agent:
                 pi_old = torch.tensor(prob_list, dtype= torch.float).to(device)
                 factorize_pi_old =torch.tensor(factorize_pi_list, dtype= torch.float).to(device)
 
+                summarized_state=torch.tensor(summarized_state_list, dtype= torch.float).to(device)
+                agent_feature=torch.tensor(agent_feature_list, dtype= torch.float).to(device)
+
                 num_nodes = node_features_list.shape[1]
                 num_agent = mask.shape[1]
                 num_action = action_feature.shape[1]
                 time_step = node_features_list.shape[0]
                 if cfg.given_edge == True:
                     node_embedding = self.get_node_representation_gpo(node_features_list,
+                                                                      agent_feature,
                                                                       edge_index_enemy_list,
                                                                       edge_index_comm_list,
                                                                       mini_batch=True,
@@ -408,6 +460,7 @@ class Agent:
                 else:
                     node_embedding, A, X, _ = self.get_node_representation_gpo(
                                                                             node_features_list,
+                                                                            agent_feature,
                                                                             edge_index_enemy_list,
                                                                             edge_index_comm_list,
                                                                             dead_masking = dead_masking,
@@ -415,43 +468,40 @@ class Agent:
                                                                             n_agent=num_agent
                                                                             )
 
-
-
                 action_feature = action_feature.reshape(time_step*num_action, -1).to(device)
                 action_embedding = self.action_representation(action_feature)
                 action_embedding = action_embedding.reshape(time_step, num_action, -1)
 
-
-
-
                 node_embedding = node_embedding[:, :num_agent, :]
                 empty = torch.zeros(1, num_agent, node_embedding.shape[2]).to(device)
-                node_embedding_next = torch.cat((node_embedding, empty), dim = 0)[:-1, :, :]
+                node_embedding_next = torch.cat((node_embedding, empty), dim = 0)[1:, :, :]
 
+                v_s = self.valuenetwork(node_embedding.reshape(num_agent*time_step,-1).detach())
+                v_next = self.valuenetwork(node_embedding_next.reshape(num_agent*time_step,-1).detach())
 
-
-
-
-                v_s = self.valuenetwork(node_embedding.reshape(num_agent*time_step,-1))
                 v_s = v_s.reshape(time_step, num_agent)
-                v_next = self.valuenetwork(node_embedding_next.reshape(num_agent*time_step,-1))
                 v_next = v_next.reshape(time_step, num_agent)
-                if i == 0:e)
-                advantage_lst.reverse()
-                    v_s_old_list.append(v_s)
-                    v_s_next_old_list.append(v_next)
+
 
                 done =  done.unsqueeze(1).repeat(1, num_agent)
 
                 reward =  reward.unsqueeze(1).repeat(1, num_agent)
                 td_target = reward + self.gamma * v_next * (1-done)
                 delta = td_target - v_s
+
                 delta = delta.cpu().detach().numpy()
                 advantage_lst = []
                 advantage = torch.zeros(num_agent)
                 for delta_t in delta[:, :]:
                     advantage = self.gamma * self.lmbda * advantage + delta_t
-                    advantage_lst.append(advantag
+                    advantage_lst.append(advantage)
+
+                if i == 0:
+                    advantage_lst.reverse()
+                    v_s_old_list.append(v_s)
+                    v_s_next_old_list.append(v_next)
+
+
                 advantage = torch.stack(advantage_lst).to(device)
 
                 for n in range(num_agent):
@@ -475,13 +525,14 @@ class Agent:
 
                     if n == 0:
                         surr = torch.min(surr1, surr2).mean()/num_agent#+0.01*entropy.mean()/num_agent
-
                     else:
                         surr+= torch.min(surr1, surr2).mean()/num_agent#+0.01*entropy.mean()/num_agent
 
                 val_surr1 = v_s
-                val_surr2 = torch.clamp(v_s, v_s_old_list[l].detach() - self.eps_clip,v_s_old_list[l].detach() + self.eps_clip)
-                value_loss = torch.max(F.smooth_l1_loss(val_surr1, td_target.detach()), F.smooth_l1_loss(val_surr2, td_target.detach())).mean()
+                val_surr2 = torch.clamp(v_s, v_s_old_list[l].detach() - self.eps_clip,
+                                             v_s_old_list[l].detach() + self.eps_clip)
+                value_loss = torch.max(F.smooth_l1_loss(val_surr1, td_target.detach()),
+                                       F.smooth_l1_loss(val_surr2, td_target.detach())).mean()
 
                 if cfg.given_edge == True:
                     loss = -surr + 0.5 * value_loss
@@ -492,7 +543,7 @@ class Agent:
                     if cfg.softmax == True:
                         loss = -surr + 0.5 * value_loss + gamma1 * lap_quad + gamma2 * gamma1 * frobenius_norm.mean()
                     else:
-                        loss = -surr + 0.5 * value_loss+  gamma1* lap_quad - gamma2 * gamma1 * sec_eig_upperbound
+                        loss = -surr + 0.5 * value_loss + gamma1* lap_quad - gamma2 * gamma1 * sec_eig_upperbound
 
 
             #print(np.array([np.linalg.eigh(L[t, :, :].cpu().detach().numpy())[0][1] for t in range(time_step)]))

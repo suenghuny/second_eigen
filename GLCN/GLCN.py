@@ -94,7 +94,7 @@ class GLCN(nn.Module):
     def _link_prediction(self, h):
 
         h = h.detach()
-        h = h[:, :self.feature_obs_size]
+        #h = h[:, :self.feature_obs_size]
         h = torch.einsum("ijk,kl->ijl", torch.abs(h.unsqueeze(1) - h.unsqueeze(0)), self.a_link)
         h = h.squeeze(2)
         A = gumbel_sigmoid(h, tau = float(os.environ.get("gumbel_tau",1)), hard = True, threshold = 0.5)
@@ -150,10 +150,13 @@ class GLCN(nn.Module):
             if mini_batch == False:
                 E = A.to(device)
                 num_nodes = X.shape[0]
+                #print(num_nodes)
                 E = torch.sparse_coo_tensor(E, torch.ones(torch.tensor(E).shape[1]).to(device), (num_nodes, num_nodes)).long().to(device).to_dense()
                 Wh = X @ self.Ws
                 a = self._prepare_attentional_mechanism_input(Wh, Wh)
                 zero_vec = -9e15 * torch.ones_like(E)
+                #print(E.shape, xWh.shape,a.shape, zero_vec.shape)
+                #print(E.shape, a.shape, zero_vec.shape)
                 a = torch.where(E > 0, a, zero_vec)
                 a = F.softmax(a, dim = 1)
                 H = F.elu(torch.matmul(a, Wh))
@@ -165,6 +168,7 @@ class GLCN(nn.Module):
                 for b in range(batch_size):
                     X_t = X[b,:,:]
                     E = torch.tensor(A[b]).long().to(device)
+
                     E = torch.sparse_coo_tensor(E, torch.ones(torch.tensor(E).shape[1]).to(device), (num_nodes, num_nodes)).long().to(device).to_dense()
                     Wh = X_t @ self.Ws
                     a = self._prepare_attentional_mechanism_input(Wh, Wh)

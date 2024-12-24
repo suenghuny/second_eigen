@@ -71,9 +71,9 @@ def evaluation(env, agent):
 
             action_feature = env.get_action_feature()  # 차원 : action_size X n_action_feature
             agent.eval_check(eval=True)
-            action, prob,_, action_history = agent.sample_action(node_embedding, action_feature, avail_action,
-                                               num_agent=env.get_env_info()["n_agents"])
+            action, prob,_, action_history = agent.sample_action(node_embedding, action_feature, avail_action, num_agent=env.get_env_info()["n_agents"])
             reward, done, info = env.step(action)
+
             episode_reward += reward
             win_tag = True if done and 'battle_won' in info and info['battle_won'] else False
             t += 1
@@ -110,17 +110,23 @@ def train(agent, env, e, t, monitor, params, current_epsilon):
         avail_action = env.get_avail_actions()
         state = env.get_state()
         n_agent = len(avail_action)
+
+
         if cfg.given_edge == True:
             node_embedding = agent.get_node_representation_gpo(node_feature, agent_feature, edge_index_enemy, edge_index_comm, n_agent = n_agent, dead_masking = dead_masking)
         else:
             node_embedding, _, _ = agent.get_node_representation_gpo(node_feature, agent_feature, edge_index_enemy, edge_index_comm, n_agent = n_agent, dead_masking = dead_masking)
 
+        summarized_state = env.get_summarized_state()
         action_feature = env.get_action_feature()  # 차원 : action_size X n_action_feature
+
+
+
         agent.eval_check(eval=True)
         action, prob, factorized_probs, action_history = agent.sample_action(node_embedding, action_feature, avail_action, num_agent = env.get_env_info()["n_agents"])
         reward, done, info = env.step(action)
-        transition = (
-                      node_feature,
+
+        transition = (node_feature,
                       edge_index_enemy,
                       avail_action,
                       action,
@@ -132,7 +138,8 @@ def train(agent, env, e, t, monitor, params, current_epsilon):
                       factorized_probs,
                       dead_masking,
                       state,
-                      agent_feature
+                      summarized_state,
+                      agent_feature,
                       )
         agent.put_data(transition)
         episode_reward += reward
@@ -152,14 +159,13 @@ def train(agent, env, e, t, monitor, params, current_epsilon):
         cum_surr, cum_value_loss, cum_lap_quad, cum_sec_eig_upperbound, second_eigenvalue= agent.learn()
         monitor.append((e, cum_surr, cum_value_loss, cum_lap_quad, cum_sec_eig_upperbound))
         df = pd.DataFrame(monitor)
-
         if cfg.vessl_on == True:
             df.to_csv("/output/df.csv")
             vessl.log(step = e, payload={'fiedler': second_eigenvalue})
-            # vessl.log(step = e, payload = {'surrogate loss' : cum_surr})
-            # vessl.log(step = e, payload = {'value loss': cum_value_loss})
             vessl.log(step = e, payload = {'laplacian quadractic': cum_lap_quad})
             vessl.log(step = e, payload = {'ub': cum_sec_eig_upperbound})
+        else:
+            df.to_csv("df.csv")
 
 
 
@@ -199,8 +205,7 @@ def main():
             "learning_rate_graph": float(os.environ.get("learning_rate_graph", 0.0005387456623850075)),
             "gamma1": float(os.environ.get("gamma1", 1)),
             "gamma2": float(os.environ.get("gamma2", 1)),
-            "n_data_parallelism": int(os.environ.get("n_data_parallelism", 5)),
-
+            "n_data_parallelism": int(os.environ.get("n_data_parallelism", 1)),
             "gamma": cfg.gamma,
             "ppo_layers": cfg.ppo_layers,
             "lmbda": cfg.lmbda,

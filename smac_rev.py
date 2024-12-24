@@ -435,7 +435,7 @@ class StarCraft2Env(MultiAgentEnv):
     def generate_num_unit_types(self, num_total_unit_types, unit_type_ids):
         self.unit_type_ids = sorted(unit_type_ids)
         self.num_total_unit_types = num_total_unit_types
-        self.n_node_features = 4 + 6 + 6 + self.num_total_unit_types + 1-8
+        self.n_node_features = 4 + 6 + 6 + 4 + 1-8-1+3-1+1
 
     def reset(self):
         """Reset the environment. Required after each full episode.
@@ -529,6 +529,7 @@ class StarCraft2Env(MultiAgentEnv):
                 )
                 actions[a_id] = action_num
             if sc_action:
+
                 sc_actions.append(sc_action)
 
         # Send action request
@@ -1011,19 +1012,21 @@ class StarCraft2Env(MultiAgentEnv):
 
     def get_action_feature(self):
         enemy_feature = self.get_enemy_feature()
-        enemy_feature = enemy_feature[:, :-1]
-
-
+        ally_feature = self.get_ally_feature()
 
         no_attack_actions_one_hot = np.eye(self.n_actions_no_attack)                                                    # dimension                      : n_actions_no_attack, n_actions_no_attack
-        no_attack_action_dummy_feature = np.zeros([self.n_actions_no_attack, self.n_node_features - 1])                 # no_attack_action_dummy_feature : n_actions_no_attack, feature_dim
+        no_attack_action_dummy_feature = np.zeros([self.n_actions_no_attack, self.n_node_features])                 # no_attack_action_dummy_feature : n_actions_no_attack, feature_dim
         no_attack_action_feature = np.concatenate([no_attack_actions_one_hot, no_attack_action_dummy_feature], axis=1)  # concat dim                     : n_actions_no_attack, n_actions_no_attack + feature_dim
 
+        attack_action_one_hot_init = np.zeros([self.n_agents, self.n_actions_no_attack])  # attack_action_one_hot_init     : num_enemy, n_actions_no_attack
+        attack_action_feature_ally = np.concatenate([attack_action_one_hot_init, ally_feature],axis=1)  # concat dim                     : num_enemy, n_actions_no_attack + feature_dim
+
         attack_action_one_hot_init = np.zeros([self.n_enemies, self.n_actions_no_attack])                               # attack_action_one_hot_init     : num_enemy, n_actions_no_attack
-        # enemy_feature                  : num_enemy, feature_dim
-        attack_action_feature = np.concatenate([attack_action_one_hot_init, enemy_feature], axis=1)                     # concat dim                     : num_enemy, n_actions_no_attack + feature_dim
-        action_feature = np.concatenate([no_attack_action_feature, attack_action_feature],
-                                        axis=0)  # concat dim                     : num_enemy+n_actions_no_attack, n_actions_no_attack + feature_dim
+        attack_action_feature_enemy = np.concatenate([attack_action_one_hot_init, enemy_feature], axis=1)                     # concat dim                     : num_enemy, n_actions_no_attack + feature_dim
+
+
+        action_feature = np.concatenate([no_attack_action_feature, attack_action_feature_ally, attack_action_feature_enemy],  axis=0)  # concat dim                     : num_enemy+n_actions_no_attack, n_actions_no_attack + feature_dim
+        #print(action_feature.shape)
         action_feature = action_feature.tolist()
         return action_feature
 
@@ -1095,6 +1098,7 @@ class StarCraft2Env(MultiAgentEnv):
                     e_x = e_unit.pos.x
                     e_y = e_unit.pos.y
                     dist = self.distance(x, y, e_x, e_y)
+                    #print(dist, sight_range)
                     if dist < sight_range and e_unit.health > 0:
                         # visible and alive
                         edge_index[0].append(agent_id)
@@ -1158,8 +1162,53 @@ class StarCraft2Env(MultiAgentEnv):
 
         return dead_masking
 
+
+    def get_summarized_state(self):
+        ally_health_list = []
+        ally_shield_list = []
+        for i in range(self.n_agents):
+            unit = self.get_unit_by_id(i)
+            ally_health_list.append(unit.health/unit.health_max)
+            if unit.shield_max != 0:
+                ally_shield_list.append(unit.shield/unit.shield_max)
+            else:
+                ally_shield_list.append(0)
+
+        enemy_health_list = []
+        enemy_shield_list = []
+        for enemy_id in range(self.n_agents, self.n_agents+self.n_enemies):
+            enemy_id = enemy_id - self.n_agents
+            unit = list(self.enemies.items())[enemy_id][1]
+            enemy_health_list.append(unit.health/unit.health_max)
+            if unit.shield_max != 0:
+                enemy_shield_list.append(unit.shield/unit.shield_max)
+            else:
+                enemy_shield_list.append(0)
+        summarized_state = [
+                            np.mean(ally_health_list ),
+                            np.min(ally_health_list),
+                            np.max(ally_health_list),
+
+                            np.mean(ally_shield_list),
+                            np.min(ally_shield_list),
+                            np.max(ally_shield_list),
+
+                            np.mean(enemy_health_list),
+                            np.min(enemy_health_list),
+                            np.max(enemy_health_list),
+
+                            np.mean(enemy_shield_list),
+                            np.min(enemy_shield_list),
+                            np.max(enemy_shield_list),
+
+                            ]
+        return summarized_state
+
+
+
+
     def get_node_feature(self, node_id):
-        " 1st moment"
+
         " position : x_position, y_position"
         " health : "
         " shield : "
@@ -1168,15 +1217,33 @@ class StarCraft2Env(MultiAgentEnv):
         move_avail_feats = np.zeros(4, dtype=np.float32)
         pos_feats = np.zeros(2, dtype=np.float32)
         health_and_shield_feats = np.zeros(2, dtype=np.float32)
-        unit_type_feats = np.zeros(self.num_total_unit_types, dtype=np.float32)
+
+        agent_health_list = list()
+        for t in range(self.n_agents):
+            u = self.get_unit_by_id(t)
+            agent_health_list.append(u.health)
+
+        enemy_health_list = list()
+        for t in range(self.n_agents, self.n_agents+self.n_enemies):
+            t = t - self.n_agents
+            u = list(self.enemies.items())[t][1]
+            enemy_health_list.append(u.health)
+
 
         if node_id < self.n_agents:
             unit = self.get_unit_by_id(node_id)
             unithistoricinfo = self.historic_infos_agents[node_id]
+
+            feature1 = unit.health / np.sum(agent_health_list)
+            feature2 = unit.health / np.max(agent_health_list)
+
         else:
             node_id = node_id - self.n_agents
             unit = list(self.enemies.items())[node_id][1]
             unithistoricinfo = self.historic_infos_enemies[node_id]
+
+            feature1 = unit.health / np.sum(enemy_health_list)
+            feature2 = unit.health / np.max(enemy_health_list)
 
         if unit.health > 0:
             if self.can_move(unit, Direction.NORTH):
@@ -1187,10 +1254,8 @@ class StarCraft2Env(MultiAgentEnv):
                 move_avail_feats[2] = 1
             if self.can_move(unit, Direction.WEST):
                 move_avail_feats[3] = 1
-
-            pos_feats[0] = unit.pos.x   / self.position_scaling_factor
-            pos_feats[1] = unit.pos.y   / self.position_scaling_factor
-
+            pos_feats[0] = unit.pos.x / self.position_scaling_factor
+            pos_feats[1] = unit.pos.y / self.position_scaling_factor
             health_and_shield_feats[0] = unit.health / unit.health_max
             if unit.shield_max == 0:
                 health_and_shield_feats[1] = 0
@@ -1203,74 +1268,47 @@ class StarCraft2Env(MultiAgentEnv):
                 pos_y_1st_moment = 0
                 health_1st_moment = 0
                 shield_1st_moment = 0
-
-                pos_x_2nd_moment = 0
-                pos_y_2nd_moment = 0
-                health_2nd_moment = 0
-                shield_2nd_moment = 0
-
             else:
-                pos_x_1st_moment = (unit.pos.x - unithistoricinfo.last_pos_x)
-                pos_y_1st_moment = (unit.pos.y - unithistoricinfo.last_pos_y)
-                health_1st_moment = -(unit.health - unithistoricinfo.last_health-2) / (
-                            self._step_mul * self.health_scaling_factor1)
-                shield_1st_moment = -(unit.shield - unithistoricinfo.last_shield) / (
-                            self._step_mul * self.health_scaling_factor2)
+                pos_x_1st_moment = (unit.pos.x - unithistoricinfo.last_pos_x)/self.position_scaling_factor
+                pos_y_1st_moment = (unit.pos.y - unithistoricinfo.last_pos_y)/ self.position_scaling_factor
+                health_1st_moment = -(unit.health - unithistoricinfo.last_health) / unit.health_max
+                if unit.shield_max == 0:
+                    shield_1st_moment = 0
+                else:
+                    shield_1st_moment = -(unit.shield - unithistoricinfo.last_shield) / unit.shield_max
 
-                pos_x_2nd_moment = (pos_x_1st_moment - unithistoricinfo.last_pos_x_1st_moment)
-                pos_y_2nd_moment = (pos_y_1st_moment - unithistoricinfo.last_pos_y_1st_moment)
-                health_2nd_moment = -(health_1st_moment - unithistoricinfo.last_health_1st_moment-5) / (
-                            self._step_mul * self.health_scaling_factor3)
-                shield_2nd_moment = -(shield_1st_moment - unithistoricinfo.last_shield_1st_moment-5) / (
-                            self._step_mul * self.health_scaling_factor4)
-
-            # pos_feats[2] =  pos_x_1st_moment
-            # pos_feats[3] = (pos_y_1st_moment+2)/4
-            # pos_feats[4] = (pos_x_2nd_moment+2)/4
-            # pos_feats[5] = (pos_y_2nd_moment+3)/6
-
-            # health_and_shield_feats[2] = health_1st_moment
-            # health_and_shield_feats[3] = shield_1st_moment
-            # health_and_shield_feats[4] = health_2nd_moment
-            # health_and_shield_feats[5] = shield_2nd_moment
-
-            # self.pos_list1.append(health_1st_moment)
-            # self.pos_list2.append(shield_1st_moment)
-            # self.pos_list3.append(health_2nd_moment)
-            # self.pos_list4.append(shield_2nd_moment)
-            #
 
             unithistoricinfo.last_pos_x = unit.pos.x
             unithistoricinfo.last_pos_y = unit.pos.y
             unithistoricinfo.last_health = unit.health
             unithistoricinfo.last_shield = unit.shield
-
             unithistoricinfo.last_pos_x_1st_moment = pos_x_1st_moment
             unithistoricinfo.last_pos_y_1st_moment = pos_y_1st_moment
             unithistoricinfo.last_health_1st_moment = health_1st_moment
             unithistoricinfo.last_shield_1st_moment = shield_1st_moment
 
-        unit_type_feats[self.unit_type_ids.index(str(unit.health_max) +
-                                                 str(unit.shield_max) +
-                                                 str(unit.radius))] = 1
-        #print(self.unit_type_ids)
-        #print(self.position_scaling_factor, unit_type_feats, unit.health_max, unit.shield_max)
+        max_cd = self.unit_max_cooldown(unit)
+
         alliance_index = 0 if unit.alliance == 1 else 1
-        # print(alliance_index)
-        # last_action = unithistoricinfo.last_action_node
-        if alliance_index == 0:
-            alliance_feats = np.zeros(1, dtype=np.float32)
+
+        if node_id < self.n_agents:
+            cooldown_feature = [unit.weapon_cooldown / max_cd,
+                                feature1,
+                                feature2]
         else:
-            alliance_feats = np.ones(1,  dtype=np.float32)
+            cooldown_feature = [unit.weapon_cooldown / max_cd, feature1, feature2]
 
-        node_feature = np.concatenate((unit_type_feats, move_avail_feats, pos_feats, health_and_shield_feats, alliance_feats))
+        #print(unit.health / np.max(agent_health_list), unit.health, agent_health_list,enemy_health_list)
+
+
+        static_feature = [unit.health_max/200, unit.shield_max/100, max_cd/200]
+        node_feature = np.concatenate((cooldown_feature, static_feature, move_avail_feats, pos_feats, health_and_shield_feats, [alliance_index]))
         node_feature = node_feature.tolist()
-
+        #print(node_feature)
         return node_feature
 
     def get_obs_agent(self, agent_id):
         """Returns observation for agent_id. The observation is composed of:
-
         - agent movement features (where it can move to, height information
             and pathing grid)
         - enemy features (available_to_attack, health, relative_x, relative_y,
@@ -1343,12 +1381,8 @@ class StarCraft2Env(MultiAgentEnv):
                         self.n_actions_no_attack + e_id
                         ]  # available
                     enemy_feats[e_id, 1] = dist / sight_range  # distance
-                    enemy_feats[e_id, 2] = (
-                                                   e_x - x
-                                           ) / sight_range  # relative X
-                    enemy_feats[e_id, 3] = (
-                                                   e_y - y
-                                           ) / sight_range  # relative Y
+                    enemy_feats[e_id, 2] = (e_x - x) / sight_range  # relative X
+                    enemy_feats[e_id, 3] = (e_y - y) / sight_range  # relative Y
 
                     ind = 4
                     if self.obs_all_health:
@@ -2004,6 +2038,7 @@ class StarCraft2Env(MultiAgentEnv):
 
     def get_unit_by_id(self, a_id):
         """Get unit by ID."""
+
         return self.agents[a_id]
 
     def get_stats(self):

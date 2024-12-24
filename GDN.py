@@ -30,24 +30,9 @@ from copy import deepcopy
 class VDN(nn.Module):
     def __init__(self, feature_size):
         super(VDN, self).__init__()
-        self.feature_size = feature_size
-        self.fcn1 = nn.Linear(feature_size,96)
-        self.fcn2 = nn.Linear(96, 48)
-        self.fcn3 = nn.Linear(48, 18)
-        self.fcn4 = nn.Linear(18, 1)
 
     def forward(self, q_local, agent_embedding):
-        batch_size = agent_embedding.shape[0]
-        num_agent = agent_embedding.shape[1]
-        agent_embedding = agent_embedding.reshape(batch_size*num_agent,-1)
-        x = F.elu(self.fcn1(agent_embedding))
-        x = F.elu(self.fcn2(x))
-        x = F.elu(self.fcn3(x))
-        x = self.fcn4(x)
-        x = x.reshape(batch_size, num_agent)
-        a = F.softmax(x, dim = 1)
-        return torch.sum(q_local*a, dim = 1)*num_agent
-
+        return torch.sum(q_local, dim = 1)
 
 
 class MixingNet(nn.Module):
@@ -513,15 +498,12 @@ class Agent(nn.Module):
                 edge_index_obs  = torch.tensor(edge_index_obs, dtype=torch.long, device=device)
                 edge_index_comm = torch.tensor(edge_index_comm, dtype=torch.long, device=device)
                 node_embedding_obs = self.func_obs(X = node_embedding_obs, A = edge_index_obs)[:n_agent,:]
-
                 cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim = 1)
-
                 if cfg.given_edge == True:
                     node_embedding = self.func_glcn(X=cat_embedding[:n_agent,:], dead_masking= dead_masking, A=edge_index_comm)
                     return node_embedding
                 else:
                     node_embedding, A, X = self.func_glcn(X = cat_embedding, dead_masking= dead_masking, A = None)
-                    # 오류 수정
                     return node_embedding, A, X
         else:
             if target == False:
@@ -538,8 +520,6 @@ class Agent(nn.Module):
                 node_embedding_comm = self.node_representation_comm(agent_feature)
                 node_embedding_obs = node_embedding_obs.reshape(batch_size, num_nodes, -1)
                 node_embedding_comm = node_embedding_comm.reshape(batch_size, num_agents, -1)
-
-
                 node_embedding_obs = self.func_obs(X = node_embedding_obs, A = edge_index_obs, mini_batch = mini_batch)[:, :n_agent,:]
                 cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim=2)
                 if cfg.given_edge == True:
@@ -554,10 +534,13 @@ class Agent(nn.Module):
                     agent_feature = torch.tensor(agent_feature, dtype=torch.float, device=device)
                     node_embedding_obs  = self.node_representation_tar(node_feature)
                     node_embedding_comm = self.node_representation_comm_tar(agent_feature)
-                    node_embedding_obs = self.func_obs_tar(X = node_embedding_obs, A = edge_index_obs, mini_batch = mini_batch)[:, :n_agent,:]
+                    node_embedding_obs = self.func_obs_tar(X = node_embedding_obs,
+                                                           A = edge_index_obs,
+                                                           mini_batch = mini_batch)[:, :n_agent,:]
                     cat_embedding = torch.cat([node_embedding_obs, node_embedding_comm], dim=2)
                     if cfg.given_edge == True:
-                        node_embedding = self.func_glcn_tar(X=cat_embedding[:n_agent,:], A=edge_index_comm, dead_masking= dead_masking, mini_batch=mini_batch)
+                        node_embedding = self.func_glcn_tar(X=cat_embedding[:n_agent,:],
+                                                            A=edge_index_comm, dead_masking= dead_masking, mini_batch=mini_batch)
                         return node_embedding
                     else:
                         node_embedding, A, X, D = self.func_glcn_tar(X = cat_embedding, dead_masking= dead_masking, A = None, mini_batch = mini_batch)
@@ -776,6 +759,7 @@ class Agent(nn.Module):
         q_tot = self.VDN(q_tot, selected_obs_and_action_memory)
         q_tot_tar = self.VDN_target(q_tot_tar, selected_obs_and_action_next_memory)
         td_target = rewards*self.num_agent + self.gamma* (1-dones)*q_tot_tar
+        print(q_tot_tar)
         loss_func = str(os.environ.get("loss_func", "mse"))
         if cfg.given_edge == True:
             rl_loss = F.mse_loss(q_tot, td_target.detach())+0.8*var_
@@ -785,6 +769,7 @@ class Agent(nn.Module):
             graph_loss = gamma1 * lap_quad - gamma2 * gamma1 * sec_eig_upperbound+ \
                          float(os.environ.get("var_reg", 0.01))*var_
             loss = graph_loss+rl_loss
+
         loss.backward()
         grad_clip = float(os.environ.get("grad_clip", 10))
         torch.nn.utils.clip_grad_norm_(self.eval_params, grad_clip)
