@@ -56,36 +56,11 @@ class GLCN(nn.Module):
         super(GLCN, self).__init__()
         self.graph_embedding_size = graph_embedding_size
         self.link_prediction = link_prediction
-        if self.link_prediction == True:
-            self.feature_obs_size = feature_obs_size
-            self.a_link = nn.Parameter(torch.empty(size=(self.feature_obs_size, 1)))
-            nn.init.xavier_uniform_(self.a_link.data, gain=1.414)
-            self.k_hop = int(os.environ.get("k_hop",2))
-            self.sampling = bool(os.environ.get("sampling", True))
-            self.skip_connection = skip_connection
 
-            if self.skip_connection == True:
-                graph_embedding_size = feature_size
-                self.graph_embedding_size = feature_size
-
-            if self.sampling == True:
-                self.Ws = [nn.Parameter(torch.Tensor(feature_size, graph_embedding_size)) if k == 0 else nn.Parameter(torch.Tensor(size=(graph_embedding_size, graph_embedding_size))) for k in range(self.k_hop)]
-                [glorot(W) for W in self.Ws]
-
-                self.a = [nn.Parameter(torch.empty(size=(2 * graph_embedding_size, 1))) if k == 0 else nn.Parameter(torch.empty(size=(2 * graph_embedding_size, 1))) for k in range(self.k_hop)]
-                [nn.init.xavier_uniform_(self.a[k].data, gain=1.414) for k in range(self.k_hop)]
-
-                self.Ws = nn.ParameterList(self.Ws)
-                self.a = nn.ParameterList(self.a)
-            else:
-                self.W = [nn.Parameter(torch.Tensor(size=(feature_size, graph_embedding_size))) if k == 0 else nn.Parameter(torch.Tensor(size=(graph_embedding_size, graph_embedding_size))) for k in range(self.k_hop)]
-                [glorot(W) for W in self.W]
-                self.W = nn.ParameterList(self.W)
-        else:
-            self.Ws = nn.Parameter(torch.Tensor(feature_size, graph_embedding_size))
-            glorot(self.Ws)
-            self.a = nn.Parameter(torch.empty(size=(2 * graph_embedding_size, 1)))
-            nn.init.xavier_uniform_(self.a.data, gain=1.414)
+        self.Ws = nn.Parameter(torch.Tensor(feature_size, graph_embedding_size))
+        glorot(self.Ws)
+        self.a = nn.Parameter(torch.empty(size=(2 * graph_embedding_size, 1)))
+        nn.init.xavier_uniform_(self.a.data, gain=1.414)
 
 
 
@@ -113,36 +88,18 @@ class GLCN(nn.Module):
 
     def _prepare_attentional_mechanism_input(self, Wq, Wv, k = None):
         if k == None:
-
-            # N = Wq.size(0)
-            #
-            # # Prepare repeat and transpose tensors for broadcasting
-            # Wh_repeated_in_chunks = Wq.repeat_interleave(N, dim=0)
-            # Wh_repeated_alternating = Wq.repeat(N, 1)
-            # all_combinations_matrix = torch.cat([Wh_repeated_in_chunks, Wh_repeated_alternating],dim=1)  # (N*N, 2*out_features)
-            # e = torch.matmul(all_combinations_matrix, self.a).squeeze(1)
-            # e = e.view(N, N)
-            # print("전",e.shape)
             Wh1 = Wq
             Wh1 = torch.matmul(Wh1, self.a[:self.graph_embedding_size, : ])
             Wh2 = Wv
             Wh2 = torch.matmul(Wh2, self.a[self.graph_embedding_size:, :])
             e = Wh1 + Wh2.T
-            # print("후", e.shape)
         else:
             Wh1 = Wq
             Wh1 = torch.matmul(Wh1, self.a[k][:self.graph_embedding_size, : ])
             Wh2 = Wv
             Wh2 = torch.matmul(Wh2, self.a[k][self.graph_embedding_size:, :])
             e = Wh1 + Wh2.T
-            # N = Wq.size(0)
-            #
-            # # Prepare repeat and transpose tensors for broadcasting
-            # Wh_repeated_in_chunks = Wq.repeat_interleave(N, dim=0)
-            # Wh_repeated_alternating = Wq.repeat(N, 1)
-            # all_combinations_matrix = torch.cat([Wh_repeated_in_chunks, Wh_repeated_alternating],dim=1)  # (N*N, 2*out_features)
-            # e = torch.matmul(all_combinations_matrix, self.a[k]).squeeze(1)
-            # e = e.view(N, N)
+
         return F.leaky_relu(e, negative_slope=cfg.negativeslope)
 
     def forward(self, A, X, mini_batch = False, dead_masking = None):
@@ -155,10 +112,9 @@ class GLCN(nn.Module):
                 Wh = X @ self.Ws
                 a = self._prepare_attentional_mechanism_input(Wh, Wh)
                 zero_vec = -9e15 * torch.ones_like(E)
-                #print(E.shape, xWh.shape,a.shape, zero_vec.shape)
-                #print(E.shape, a.shape, zero_vec.shape)
                 a = torch.where(E > 0, a, zero_vec)
                 a = F.softmax(a, dim = 1)
+
                 H = F.elu(torch.matmul(a, Wh))
             else:
                 batch_size = X.shape[0]
@@ -168,7 +124,6 @@ class GLCN(nn.Module):
                 for b in range(batch_size):
                     X_t = X[b,:,:]
                     E = torch.tensor(A[b]).long().to(device)
-
                     E = torch.sparse_coo_tensor(E, torch.ones(torch.tensor(E).shape[1]).to(device), (num_nodes, num_nodes)).long().to(device).to_dense()
                     Wh = X_t @ self.Ws
                     a = self._prepare_attentional_mechanism_input(Wh, Wh)

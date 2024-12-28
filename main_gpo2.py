@@ -57,11 +57,12 @@ def evaluation(env, agent):
         episode_reward = 0
         step = 0
         num_agent = env.get_env_info()["n_agents"]
-        action_history = torch.zeros([num_agent, env.get_env_info()["node_features"] + 6])
+        action_history = torch.zeros([num_agent, env.get_env_info()["node_features"] + 7])
         while (not done) and (step < max_episode_len):
             node_feature, edge_index_enemy, edge_index_comm, _, dead_masking = env.get_heterogeneous_graph(heterogeneous=heterogenous)
             agent_feature = torch.concat([torch.tensor(node_feature)[:num_agent, :-1], action_history.to('cpu')], dim=1)
             avail_action = env.get_avail_actions()
+            avail_action_no_attack, avail_action_attack = env.get_hierachical_avail_actions()
             n_agent = len(avail_action)
             if cfg.given_edge == True:
                 node_embedding = agent.get_node_representation_gpo(node_feature, agent_feature, edge_index_enemy, edge_index_comm, n_agent = n_agent, dead_masking = dead_masking)
@@ -71,8 +72,13 @@ def evaluation(env, agent):
             action_feature = env.get_action_feature()  # 차원 : action_size X n_action_feature
             summarized_state = env.get_summarized_state()
             agent.eval_check(eval=True)
-            action, prob,_, action_history = agent.sample_action(summarized_state, node_embedding, action_feature, avail_action, num_agent=env.get_env_info()["n_agents"],
-                                                                 edge_index_obs = edge_index_enemy)
+            action, probs, action_history, converted_no_attack_masks, converted_attack_masks = agent.sample_action(
+                summarized_state,
+                node_embedding, action_feature, num_agent=env.get_env_info()["n_agents"],
+                epsilon=0, edge_index_obs=edge_index_enemy,
+                no_attack_mask=avail_action_no_attack,
+                attack_mask=avail_action_attack
+                )
             reward, done, info = env.step(action)
 
             episode_reward += reward
@@ -104,11 +110,12 @@ def train(agent, env, e, t, monitor, params, current_epsilon):
     eval = False
     start = time.time()
     num_agent = env.get_env_info()["n_agents"]
-    action_history = torch.zeros([num_agent, env.get_env_info()["node_features"] + 6])
+    action_history = torch.zeros([num_agent, env.get_env_info()["node_features"] + 7])
     while (not done) and (step < max_episode_limit):
         node_feature, edge_index_enemy, edge_index_comm, _, dead_masking = env.get_heterogeneous_graph(heterogeneous=heterogenous)
         agent_feature = torch.concat([torch.tensor(node_feature)[:num_agent, :-1], action_history.to('cpu')], dim=1)
         avail_action = env.get_avail_actions()
+        avail_action_no_attack, avail_action_attack = env.get_hierachical_avail_actions()
         state = env.get_state()
         n_agent = len(avail_action)
 
@@ -124,20 +131,25 @@ def train(agent, env, e, t, monitor, params, current_epsilon):
 
 
         agent.eval_check(eval=True)
-        action, prob, factorized_probs, action_history = agent.sample_action(summarized_state, node_embedding, action_feature, avail_action, num_agent = env.get_env_info()["n_agents"],
-                                                                             epsilon = 0, edge_index_obs=edge_index_enemy)
+        action, probs, action_history, converted_no_attack_masks, converted_attack_masks = agent.sample_action(summarized_state,
+                                                                                                                        node_embedding, action_feature, num_agent = env.get_env_info()["n_agents"],
+                                                                             epsilon = 0, edge_index_obs=edge_index_enemy,
+                                                                             no_attack_mask=avail_action_no_attack,
+                                                                             attack_mask=avail_action_attack
+                                                                             )
+        #print(action_history)
         reward, done, info = env.step(action)
 
         transition = (node_feature,
                       edge_index_enemy,
-                      avail_action,
+                      converted_no_attack_masks,
                       action,
-                      prob,
+                      probs,
                       action_feature,
                       reward,
                       done,
                       edge_index_comm,
-                      factorized_probs,
+                      converted_attack_masks,
                       dead_masking,
                       state,
                       summarized_state,
@@ -166,8 +178,8 @@ def train(agent, env, e, t, monitor, params, current_epsilon):
             #.log(step = e, payload={'fiedler': second_eigenvalue})
             vessl.log(step = e, payload = {'laplacian quadractic': cum_lap_quad})
             vessl.log(step = e, payload = {'ub': cum_sec_eig_upperbound})
-        else:
-            df.to_csv("df.csv")
+        else:pass
+            #df.to_csv("df.csv")
 
 
 
@@ -199,17 +211,17 @@ def main():
             "n_representation_action": int(os.environ.get("n_representation_action", 56)),
             "graph_embedding": int(os.environ.get("graph_embedding", 64)),
             "graph_embedding_comm": int(os.environ.get("graph_embedding_comm", 128)),
-            "learning_rate": float(os.environ.get("learning_rate", 5e-4)),
+            "learning_rate": float(os.environ.get("learning_rate", 1e-4)),
             "learning_rate_graph": float(os.environ.get("learning_rate_graph", 0.0005387456623850075)),
             "gamma1": float(os.environ.get("gamma1", 1)),
             "gamma2": float(os.environ.get("gamma2", 1)),
-            "n_data_parallelism": int(os.environ.get("n_data_parallelism", 5)),
+            "n_data_parallelism": int(os.environ.get("n_data_parallelism", 1)),
 
             "gamma": cfg.gamma,
             "ppo_layers": cfg.ppo_layers,
             "lmbda": cfg.lmbda,
             "eps_clip": cfg.eps_clip,
-            "K_epoch": int(os.environ.get("K_epoch", 5)),
+            "K_epoch": int(os.environ.get("K_epoch", 10)),
             "layers": cfg.ppo_layers,
             "feature_size": env.get_env_info()["node_features"],
             "action_size": env.get_env_info()["n_actions"],

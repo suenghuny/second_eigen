@@ -510,10 +510,22 @@ class StarCraft2Env(MultiAgentEnv):
         self._launch()
         self.force_restarts += 1
 
+
+    def interpreter(self, actions):
+        if actions[0] == 6:
+            u = actions[1] + 6
+        else:
+            u = actions[0]
+        return u
+
     def step(self, actions):
         """A single environment step. Returns reward, terminated, info."""
-        actions_int = [int(a) for a in actions]
-        self.last_action = np.eye(self.n_actions)[np.array(actions_int)]
+
+
+
+        actions_int = [self.interpreter(a) for a in actions]
+        #print(actions_int)
+        #self.last_action = np.eye(self.n_actions)[np.array(actions_int)]
 
         # Collect individual actions
         sc_actions = []
@@ -1014,19 +1026,19 @@ class StarCraft2Env(MultiAgentEnv):
         enemy_feature = self.get_enemy_feature()
         ally_feature = self.get_ally_feature()
 
-        no_attack_actions_one_hot = np.eye(self.n_actions_no_attack)                                                    # dimension                      : n_actions_no_attack, n_actions_no_attack
-        no_attack_action_dummy_feature = np.zeros([self.n_actions_no_attack, self.n_node_features])                 # no_attack_action_dummy_feature : n_actions_no_attack, feature_dim
-        no_attack_action_feature = np.concatenate([no_attack_actions_one_hot, no_attack_action_dummy_feature], axis=1)  # concat dim                     : n_actions_no_attack, n_actions_no_attack + feature_dim
+        # no_attack_actions_one_hot = np.eye(self.n_actions_no_attack)                                                    # dimension                      : n_actions_no_attack, n_actions_no_attack
+        # no_attack_action_dummy_feature = np.zeros([self.n_actions_no_attack, self.n_node_features])                 # no_attack_action_dummy_feature : n_actions_no_attack, feature_dim
+        # no_attack_action_feature = np.concatenate([no_attack_actions_one_hot, no_attack_action_dummy_feature], axis=1)  # concat dim                     : n_actions_no_attack, n_actions_no_attack + feature_dim
 
-        attack_action_one_hot_init = np.zeros([self.n_agents, self.n_actions_no_attack])  # attack_action_one_hot_init     : num_enemy, n_actions_no_attack
-        attack_action_feature_ally = np.concatenate([attack_action_one_hot_init, ally_feature],axis=1)  # concat dim                     : num_enemy, n_actions_no_attack + feature_dim
+        #attack_action_one_hot_init = np.zeros([self.n_agents, self.n_actions_no_attack])  # attack_action_one_hot_init     : num_enemy, n_actions_no_attack
+        attack_action_feature_ally = ally_feature #np.concatenate([attack_action_one_hot_init, ally_feature],axis=1)  # concat dim                     : num_enemy, n_actions_no_attack + feature_dim
 
-        attack_action_one_hot_init = np.zeros([self.n_enemies, self.n_actions_no_attack])                               # attack_action_one_hot_init     : num_enemy, n_actions_no_attack
-        attack_action_feature_enemy = np.concatenate([attack_action_one_hot_init, enemy_feature], axis=1)                     # concat dim                     : num_enemy, n_actions_no_attack + feature_dim
+        #attack_action_one_hot_init = np.zeros([self.n_enemies, self.n_actions_no_attack])                               # attack_action_one_hot_init     : num_enemy, n_actions_no_attack
+        attack_action_feature_enemy = enemy_feature # np.concatenate([attack_action_one_hot_init, enemy_feature], axis=1)                     # concat dim                     : num_enemy, n_actions_no_attack + feature_dim
 
 
-        action_feature = np.concatenate([no_attack_action_feature, attack_action_feature_ally, attack_action_feature_enemy],  axis=0)  # concat dim                     : num_enemy+n_actions_no_attack, n_actions_no_attack + feature_dim
-        #print(action_feature.shape)
+        action_feature = np.concatenate([attack_action_feature_ally, attack_action_feature_enemy],  axis=0)  # concat dim                     : num_enemy+n_actions_no_attack, n_actions_no_attack + feature_dim
+
         action_feature = action_feature.tolist()
         return action_feature
 
@@ -1079,12 +1091,14 @@ class StarCraft2Env(MultiAgentEnv):
 
     def get_enemy_visibility_edge_index(self, heterogeneous = False):
         edge_index = [[], []]
-        if heterogeneous == False:
-            for agent_id in range(self.n_agents):
-                edge_index[0].append(agent_id)
-                edge_index[1].append(agent_id)
-        else:
-            pass
+        for agent_id in range(self.n_agents):
+            edge_index[0].append(agent_id)
+            edge_index[1].append(agent_id)
+
+        for e_id, e_unit in self.enemies.items():
+            edge_index[0].append(e_id + self.n_agents)
+            edge_index[1].append(e_id + self.n_agents)
+
 
         for agent_id in range(self.n_agents):
             current_agent = self.get_unit_by_id(agent_id)
@@ -1103,6 +1117,9 @@ class StarCraft2Env(MultiAgentEnv):
                         # visible and alive
                         edge_index[0].append(agent_id)
                         edge_index[1].append(e_id + self.n_agents)
+                        edge_index[0].append(e_id + self.n_agents)
+                        edge_index[1].append(agent_id)
+
 
         return edge_index
 
@@ -1824,6 +1841,20 @@ class StarCraft2Env(MultiAgentEnv):
             avail_agent = self.get_avail_agent_actions(agent_id)
             avail_actions.append(avail_agent)
         return avail_actions
+
+    def get_hierachical_avail_actions(self):
+        """Returns the available actions of all agents in a list."""
+        avail_actions_no_attack = []
+        avail_actions_attack = []
+        for agent_id in range(self.n_agents):
+            avail_agent = self.get_avail_agent_actions(agent_id)
+            avail_action_no_attack = avail_agent[:6]
+            avail_action_attack = avail_agent[6:]
+
+            avail_actions_no_attack.append(avail_action_no_attack)
+            avail_actions_attack.append(avail_action_attack)
+
+        return avail_actions_no_attack, avail_actions_attack
 
     def close(self):
         """Close StarCraft II."""

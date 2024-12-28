@@ -1,5 +1,4 @@
 import pandas as pd
-
 import argparse
 import os
 
@@ -58,7 +57,7 @@ def evaluation(env, agent):
         episode_reward = 0
         step = 0
         num_agent = env.get_env_info()["n_agents"]
-        action_history = torch.zeros([num_agent, env.get_env_info()["node_features"] + 5])
+        action_history = torch.zeros([num_agent, env.get_env_info()["node_features"] + 6])
         while (not done) and (step < max_episode_len):
             node_feature, edge_index_enemy, edge_index_comm, _, dead_masking = env.get_heterogeneous_graph(heterogeneous=heterogenous)
             agent_feature = torch.concat([torch.tensor(node_feature)[:num_agent, :-1], action_history.to('cpu')], dim=1)
@@ -67,11 +66,13 @@ def evaluation(env, agent):
             if cfg.given_edge == True:
                 node_embedding = agent.get_node_representation_gpo(node_feature, agent_feature, edge_index_enemy, edge_index_comm, n_agent = n_agent, dead_masking = dead_masking)
             else:
-                node_embedding, _, _ = agent.get_node_representation_gpo(node_feature, agent_feature, edge_index_enemy, edge_index_comm, n_agent = n_agent, dead_masking = dead_masking)
+                node_embedding= agent.get_node_representation_gpo(node_feature, agent_feature, edge_index_enemy, edge_index_comm, n_agent = n_agent, dead_masking = dead_masking)
 
             action_feature = env.get_action_feature()  # 차원 : action_size X n_action_feature
+            summarized_state = env.get_summarized_state()
             agent.eval_check(eval=True)
-            action, prob,_, action_history = agent.sample_action(node_embedding, action_feature, avail_action, num_agent=env.get_env_info()["n_agents"])
+            action, prob,_, action_history = agent.sample_action(summarized_state, node_embedding, action_feature, avail_action, num_agent=env.get_env_info()["n_agents"],
+                                                                 edge_index_obs = edge_index_enemy)
             reward, done, info = env.step(action)
 
             episode_reward += reward
@@ -103,7 +104,7 @@ def train(agent, env, e, t, monitor, params, current_epsilon):
     eval = False
     start = time.time()
     num_agent = env.get_env_info()["n_agents"]
-    action_history = torch.zeros([num_agent, env.get_env_info()["node_features"] + 5])
+    action_history = torch.zeros([num_agent, env.get_env_info()["node_features"] + 6])
     while (not done) and (step < max_episode_limit):
         node_feature, edge_index_enemy, edge_index_comm, _, dead_masking = env.get_heterogeneous_graph(heterogeneous=heterogenous)
         agent_feature = torch.concat([torch.tensor(node_feature)[:num_agent, :-1], action_history.to('cpu')], dim=1)
@@ -115,7 +116,7 @@ def train(agent, env, e, t, monitor, params, current_epsilon):
         if cfg.given_edge == True:
             node_embedding = agent.get_node_representation_gpo(node_feature, agent_feature, edge_index_enemy, edge_index_comm, n_agent = n_agent, dead_masking = dead_masking)
         else:
-            node_embedding, _, _ = agent.get_node_representation_gpo(node_feature, agent_feature, edge_index_enemy, edge_index_comm, n_agent = n_agent, dead_masking = dead_masking)
+            node_embedding = agent.get_node_representation_gpo(node_feature, agent_feature, edge_index_enemy, edge_index_comm, n_agent = n_agent, dead_masking = dead_masking)
 
         summarized_state = env.get_summarized_state()
         action_feature = env.get_action_feature()  # 차원 : action_size X n_action_feature
@@ -123,7 +124,8 @@ def train(agent, env, e, t, monitor, params, current_epsilon):
 
 
         agent.eval_check(eval=True)
-        action, prob, factorized_probs, action_history = agent.sample_action(node_embedding, action_feature, avail_action, num_agent = env.get_env_info()["n_agents"])
+        action, prob, factorized_probs, action_history = agent.sample_action(summarized_state, node_embedding, action_feature, avail_action, num_agent = env.get_env_info()["n_agents"],
+                                                                             epsilon = 0, edge_index_obs=edge_index_enemy)
         reward, done, info = env.step(action)
 
         transition = (node_feature,
@@ -156,20 +158,16 @@ def train(agent, env, e, t, monitor, params, current_epsilon):
     if cfg.vessl_on == True:
         vessl.log(step=e, payload={'episode_reward': episode_reward})
     if (e % params["n_data_parallelism"] == 0) and (e > 0):
-        cum_surr, cum_value_loss, cum_lap_quad, cum_sec_eig_upperbound, second_eigenvalue= agent.learn()
+        cum_surr, cum_value_loss, cum_lap_quad, cum_sec_eig_upperbound= agent.learn()
         monitor.append((e, cum_surr, cum_value_loss, cum_lap_quad, cum_sec_eig_upperbound))
         df = pd.DataFrame(monitor)
         if cfg.vessl_on == True:
             df.to_csv("/output/df.csv")
-            vessl.log(step = e, payload={'fiedler': second_eigenvalue})
+            #.log(step = e, payload={'fiedler': second_eigenvalue})
             vessl.log(step = e, payload = {'laplacian quadractic': cum_lap_quad})
             vessl.log(step = e, payload = {'ub': cum_sec_eig_upperbound})
         else:
             df.to_csv("df.csv")
-
-
-
-
 
 
 
@@ -205,7 +203,8 @@ def main():
             "learning_rate_graph": float(os.environ.get("learning_rate_graph", 0.0005387456623850075)),
             "gamma1": float(os.environ.get("gamma1", 1)),
             "gamma2": float(os.environ.get("gamma2", 1)),
-            "n_data_parallelism": int(os.environ.get("n_data_parallelism", 1)),
+            "n_data_parallelism": int(os.environ.get("n_data_parallelism", 5)),
+
             "gamma": cfg.gamma,
             "ppo_layers": cfg.ppo_layers,
             "lmbda": cfg.lmbda,
